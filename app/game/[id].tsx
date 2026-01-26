@@ -102,21 +102,27 @@ export default function GameDetailScreen() {
     extrapolate: 'clamp',
   });
 
-  const scoreOpacity = scrollY.interpolate({
-    inputRange: [0, 60],
+  const scoreboardTranslateY = scrollY.interpolate({
+    inputRange: [0, HEADER_EXPANDED_HEIGHT - HEADER_COLLAPSED_HEIGHT],
+    outputRange: [0, -60],
+    extrapolate: 'clamp',
+  });
+
+  const scoreboardOpacity = scrollY.interpolate({
+    inputRange: [0, 80],
     outputRange: [1, 0],
     extrapolate: 'clamp',
   });
 
   const compactScoreOpacity = scrollY.interpolate({
-    inputRange: [80, 120],
+    inputRange: [100, 140],
     outputRange: [0, 1],
     extrapolate: 'clamp',
   });
 
   const logoScale = scrollY.interpolate({
-    inputRange: [0, 100],
-    outputRange: [1, 0.6],
+    inputRange: [0, 120],
+    outputRange: [1, 0.7],
     extrapolate: 'clamp',
   });
 
@@ -156,6 +162,132 @@ export default function GameDetailScreen() {
     </View>
   );
 
+  const renderTopPerformersComparison = () => {
+    if (isScheduled || !game.boxscore?.teams) return null;
+    const awayP = game.boxscore.teams.find(t => t.homeAway === 'away')?.topPerformers;
+    const homeP = game.boxscore.teams.find(t => t.homeAway === 'home')?.topPerformers;
+
+    if (!awayP || !homeP) return null;
+
+    const renderPerformerRow = (label: string, awayPerf: any, homePerf: any, statKey: string) => (
+      <View style={styles.perfRow} key={label}>
+        <View style={styles.perfPlayer}>
+          <View style={styles.perfPlayerInfo}>
+            <Text style={styles.perfName} numberOfLines={1}>{awayPerf.shortName || awayPerf.name}</Text>
+            <Text style={styles.perfStat}>{awayPerf.stats[statKey]}</Text>
+          </View>
+          <Image source={{ uri: awayPerf.headshot }} style={styles.perfHeadshot} />
+        </View>
+        
+        <Text style={styles.perfLabel}>{label}</Text>
+        
+        <View style={styles.perfPlayer}>
+          <Image source={{ uri: homePerf.headshot }} style={[styles.perfHeadshot, { marginLeft: 0, marginRight: 8 }]} />
+          <View style={[styles.perfPlayerInfo, { alignItems: 'flex-start' }]}>
+            <Text style={styles.perfName} numberOfLines={1}>{homePerf.shortName || homePerf.name}</Text>
+            <Text style={styles.perfStat}>{homePerf.stats[statKey]}</Text>
+          </View>
+        </View>
+      </View>
+    );
+
+    return (
+      <View style={styles.infoSection}>
+        <Text style={styles.sectionHeader}>最佳表现</Text>
+        <View style={styles.perfCard}>
+          {renderPerformerRow('得分', awayP.points[0], homeP.points[0], 'points')}
+          <View style={styles.perfDivider} />
+          {renderPerformerRow('篮板', awayP.rebounds[0], homeP.rebounds[0], 'rebounds')}
+          <View style={styles.perfDivider} />
+          {renderPerformerRow('助攻', awayP.assists[0], homeP.assists[0], 'assists')}
+        </View>
+      </View>
+    );
+  };
+
+  const renderDetailedTeamStats = () => {
+    if (isScheduled || !game.boxscore?.teamStatistics) return null;
+    const t1 = game.boxscore.teamStatistics.team1; // Away
+    const t2 = game.boxscore.teamStatistics.team2; // Home
+
+    const renderStatRow = (label: string, awayVal: string | number, homeVal: string | number, awayPct: number, homePct: number, awayDisplay?: string, homeDisplay?: string) => (
+      <View style={styles.statRow} key={label}>
+        <View style={styles.statLabelRow}>
+          <View style={styles.statValueContainer}>
+            <Text style={styles.statMainValue}>{awayVal}</Text>
+            {awayDisplay && <Text style={styles.statSubValue}>{awayDisplay}</Text>}
+          </View>
+          <Text style={styles.statLabelText}>{label}</Text>
+          <View style={[styles.statValueContainer, { alignItems: 'flex-end' }]}>
+            <Text style={styles.statMainValue}>{homeVal}</Text>
+            {homeDisplay && <Text style={styles.statSubValue}>{homeDisplay}</Text>}
+          </View>
+        </View>
+        <View style={styles.statBarContainer}>
+          <View style={styles.statBarBg}>
+            <View style={[styles.statBarFill, { width: `${awayPct}%`, backgroundColor: '#71767a', left: 0 }]} />
+            <View style={[styles.statBarFill, { width: `${homePct}%`, backgroundColor: '#1d9bf0', right: 0 }]} />
+          </View>
+        </View>
+      </View>
+    );
+
+    const calcPct = (v1: any, v2: any) => {
+      const val1 = parseFloat(v1) || 0;
+      const val2 = parseFloat(v2) || 0;
+      if (val1 + val2 === 0) return 0;
+      return (val1 / (val1 + val2)) * 100;
+    };
+
+    return (
+      <View style={styles.infoSection}>
+        <Text style={styles.sectionHeader}>球队统计</Text>
+        <View style={styles.detailedStatsCard}>
+          <View style={styles.statsHeader}>
+            <Image source={getTeamImage(awayTeam.abbreviation)} style={styles.miniLogo} />
+            <Text style={styles.statsTitle}>数据对比</Text>
+            <Image source={getTeamImage(homeTeam.abbreviation)} style={styles.miniLogo} />
+          </View>
+
+          {/* Group 1: Efficiency */}
+          <View style={styles.statsGroup}>
+            {renderStatRow('投篮 (FG)', t1.fieldGoals, t2.fieldGoals, calcPct(t1.fieldGoalPercent, t2.fieldGoalPercent), calcPct(t2.fieldGoalPercent, t1.fieldGoalPercent), `${t1.fieldGoalPercent}%`, `${t2.fieldGoalPercent}%`)}
+            {renderStatRow('三分 (3FG)', t1.threePointers, t2.threePointers, calcPct(t1.threePointPercent, t2.threePointPercent), calcPct(t2.threePointPercent, t1.threePointPercent), `${t1.threePointPercent}%`, `${t2.threePointPercent}%`)}
+            {renderStatRow('罚球 (FT)', t1.freeThrows, t2.freeThrows, calcPct(t1.freeThrowPercent, t2.freeThrowPercent), calcPct(t2.freeThrowPercent, t1.freeThrowPercent), `${t1.freeThrowPercent}%`, `${t2.freeThrowPercent}%`)}
+          </View>
+
+          <View style={styles.statsDivider} />
+
+          {/* Group 2: Possession */}
+          <View style={styles.statsGroup}>
+            {renderStatRow('篮板', t1.rebounds, t2.rebounds, calcPct(t1.rebounds, t2.rebounds), calcPct(t2.rebounds, t1.rebounds))}
+            {renderStatRow('助攻', t1.assists, t2.assists, calcPct(t1.assists, t2.assists), calcPct(t2.assists, t1.assists))}
+            {renderStatRow('抢断', t1.steals, t2.steals, calcPct(t1.steals, t2.steals), calcPct(t2.steals, t1.steals))}
+            {renderStatRow('盖帽', t1.blocks, t2.blocks, calcPct(t1.blocks, t2.blocks), calcPct(t2.blocks, t1.blocks))}
+            {renderStatRow('失误', t1.turnovers, t2.turnovers, calcPct(t2.turnovers, t1.turnovers), calcPct(t1.turnovers, t2.turnovers))}
+          </View>
+
+          <View style={styles.statsDivider} />
+
+          {/* Group 3: Specialty */}
+          <View style={styles.statsGroup}>
+            {renderStatRow('禁区得分', t1.pointsInPaint, t2.pointsInPaint, calcPct(t1.pointsInPaint, t2.pointsInPaint), calcPct(t2.pointsInPaint, t1.pointsInPaint))}
+            {renderStatRow('快攻得分', t1.fastBreakPoints, t2.fastBreakPoints, calcPct(t1.fastBreakPoints, t2.fastBreakPoints), calcPct(t2.fastBreakPoints, t1.fastBreakPoints))}
+            {renderStatRow('失误得分', t1.turnoverPoints, t2.turnoverPoints, calcPct(t1.turnoverPoints, t2.turnoverPoints), calcPct(t2.turnoverPoints, t1.turnoverPoints))}
+          </View>
+
+          <View style={styles.statsDivider} />
+
+          {/* Group 4: Extras */}
+          <View style={styles.statsGroup}>
+            {renderStatRow('最大领先', t1.largestLead, t2.largestLead, calcPct(t1.largestLead, t2.largestLead), calcPct(t2.largestLead, t1.largestLead))}
+            {renderStatRow('犯规', t1.fouls, t2.fouls, calcPct(t2.fouls, t1.fouls), calcPct(t1.fouls, t2.fouls))}
+          </View>
+        </View>
+      </View>
+    );
+  };
+
   const renderGameTab = () => (
     <View style={styles.tabContent}>
       {/* AI Summary Highlight */}
@@ -192,47 +324,11 @@ export default function GameDetailScreen() {
         </View>
       )}
 
-      {/* Team Stats Comparison */}
-      {!isScheduled && game.boxscore?.teamStatistics && (
-        <View style={styles.infoSection}>
-          <View style={styles.statsHeader}>
-            <Image source={getTeamImage(awayTeam.abbreviation)} style={styles.miniLogo} />
-            <Text style={styles.statsTitle}>数据对比</Text>
-            <Image source={getTeamImage(homeTeam.abbreviation)} style={styles.miniLogo} />
-          </View>
-          
-          <View style={styles.statsList}>
-            {renderStatRow('投篮', 
-              game.boxscore.teamStatistics.team1.fieldGoals, 
-              game.boxscore.teamStatistics.team2.fieldGoals, 
-              game.boxscore.teamStatistics.team1.fieldGoalPercent, 
-              game.boxscore.teamStatistics.team2.fieldGoalPercent, 
-              `${game.boxscore.teamStatistics.team1.fieldGoalPercent}%`, 
-              `${game.boxscore.teamStatistics.team2.fieldGoalPercent}%`
-            )}
-            {renderStatRow('三分', 
-              game.boxscore.teamStatistics.team1.threePointers, 
-              game.boxscore.teamStatistics.team2.threePointers, 
-              game.boxscore.teamStatistics.team1.threePointPercent, 
-              game.boxscore.teamStatistics.team2.threePointPercent, 
-              `${game.boxscore.teamStatistics.team1.threePointPercent}%`, 
-              `${game.boxscore.teamStatistics.team2.threePointPercent}%`
-            )}
-            {renderStatRow('篮板', 
-              game.boxscore.teamStatistics.team1.rebounds, 
-              game.boxscore.teamStatistics.team2.rebounds,
-              (game.boxscore.teamStatistics.team1.rebounds / (game.boxscore.teamStatistics.team1.rebounds + game.boxscore.teamStatistics.team2.rebounds)) * 100,
-              (game.boxscore.teamStatistics.team2.rebounds / (game.boxscore.teamStatistics.team1.rebounds + game.boxscore.teamStatistics.team2.rebounds)) * 100
-            )}
-            {renderStatRow('禁区得分', 
-              game.boxscore.teamStatistics.team1.pointsInPaint, 
-              game.boxscore.teamStatistics.team2.pointsInPaint,
-              (game.boxscore.teamStatistics.team1.pointsInPaint / (game.boxscore.teamStatistics.team1.pointsInPaint + game.boxscore.teamStatistics.team2.pointsInPaint)) * 100,
-              (game.boxscore.teamStatistics.team2.pointsInPaint / (game.boxscore.teamStatistics.team1.pointsInPaint + game.boxscore.teamStatistics.team2.pointsInPaint)) * 100
-            )}
-          </View>
-        </View>
-      )}
+      {/* Best Performers Section */}
+      {renderTopPerformersComparison()}
+
+      {/* Detailed Team Stats */}
+      {renderDetailedTeamStats()}
     </View>
   );
 
@@ -250,8 +346,14 @@ export default function GameDetailScreen() {
           <View style={styles.iconButton} />
         </View>
 
-        {/* Expanded Content */}
-        <Animated.View style={[styles.scoreboard, { opacity: scoreOpacity }]}>
+        {/* Expanded Content Area (Absolute positioned within shrinking header) */}
+        <Animated.View style={[
+          styles.scoreboard, 
+          { 
+            opacity: scoreboardOpacity,
+            transform: [{ translateY: scoreboardTranslateY }]
+          }
+        ]}>
           <View style={styles.teamContainer}>
             <Animated.Image 
               source={getTeamImage(awayTeam.abbreviation)} 
@@ -275,18 +377,19 @@ export default function GameDetailScreen() {
           </View>
         </Animated.View>
 
-        {/* Tabs */}
-        <View style={styles.tabs}>
-          <TouchableOpacity onPress={() => setActiveTab('game')} style={[styles.tab, activeTab === 'game' && styles.activeTab]}>
-            <Text style={[styles.tabText, activeTab === 'game' && styles.activeTabText]}>比赛</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setActiveTab('away')} style={[styles.tab, activeTab === 'away' && styles.activeTab]}>
-            <Text style={[styles.tabText, activeTab === 'away' && styles.activeTabText, { opacity: activeTab === 'away' ? 1 : 0.5 }]}>{awayTeam.nameZhCN}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setActiveTab('home')} style={[styles.tab, activeTab === 'home' && styles.activeTab]}>
-            <Text style={[styles.tabText, activeTab === 'home' && styles.activeTabText, { opacity: activeTab === 'home' ? 1 : 0.5 }]}>{homeTeam.nameZhCN}</Text>
-          </TouchableOpacity>
-          <Animated.View style={styles.activeIndicator} />
+        {/* Tabs - Anchored to the bottom of the header */}
+        <View style={styles.tabsContainer}>
+          <View style={styles.tabs}>
+            <TouchableOpacity onPress={() => setActiveTab('game')} style={[styles.tab, activeTab === 'game' && styles.activeTab]}>
+              <Text style={[styles.tabText, activeTab === 'game' && styles.activeTabText]}>比赛</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setActiveTab('away')} style={[styles.tab, activeTab === 'away' && styles.activeTab]}>
+              <Text style={[styles.tabText, activeTab === 'away' && styles.activeTabText, { opacity: activeTab === 'away' ? 1 : 0.5 }]}>{awayTeam.nameZhCN}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setActiveTab('home')} style={[styles.tab, activeTab === 'home' && styles.activeTab]}>
+              <Text style={[styles.tabText, activeTab === 'home' && styles.activeTabText, { opacity: activeTab === 'home' ? 1 : 0.5 }]}>{homeTeam.nameZhCN}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Animated.View>
 
@@ -328,8 +431,7 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 100,
     backgroundColor: '#000000',
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#1c1c1e',
+    overflow: 'hidden',
   },
   navBar: {
     flexDirection: 'row',
@@ -337,6 +439,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 8,
     height: 44,
+    zIndex: 110,
   },
   iconButton: {
     width: 44,
@@ -359,6 +462,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     alignItems: 'center',
     paddingVertical: 10,
+    height: 120,
   },
   teamContainer: {
     alignItems: 'center',
@@ -402,10 +506,20 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   // Tabs
+  tabsContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#000000',
+    borderTopWidth: 0.5,
+    borderTopColor: '#1c1c1e',
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#1c1c1e',
+  },
   tabs: {
     flexDirection: 'row',
     height: 50,
-    marginTop: 10,
   },
   tab: {
     flex: 1,
@@ -495,6 +609,59 @@ const styles = StyleSheet.create({
     color: '#71767a',
     fontSize: 13,
   },
+  // Best Performers Styles
+  perfCard: {
+    backgroundColor: '#1c1c1e',
+    borderRadius: 16,
+    paddingVertical: 8,
+  },
+  perfRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  perfPlayer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  perfPlayerInfo: {
+    alignItems: 'flex-end',
+    flex: 1,
+  },
+  perfName: {
+    color: '#71767a',
+    fontSize: 12,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  perfStat: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  perfHeadshot: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#2c2c2e',
+    marginLeft: 8,
+  },
+  perfLabel: {
+    width: 60,
+    textAlign: 'center',
+    color: '#71767a',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  perfDivider: {
+    height: 0.5,
+    backgroundColor: '#2c2c2e',
+    marginHorizontal: 16,
+  },
   white: {
     color: '#ffffff',
     fontWeight: '700',
@@ -522,6 +689,14 @@ const styles = StyleSheet.create({
   },
   statsList: {
     gap: 20,
+  },
+  statsGroup: {
+    gap: 16,
+  },
+  statsDivider: {
+    height: 0.5,
+    backgroundColor: '#1c1c1e',
+    marginVertical: 20,
   },
   statRow: {
     marginBottom: 4,
