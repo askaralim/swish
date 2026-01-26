@@ -1,50 +1,75 @@
-# Welcome to your Expo app 👋
+# Swish 🏀
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A premium, lightweight NBA statistics application for iOS, built with React Native and Expo. Designed with a focus on minimalist aesthetics, smooth motion, and real-time data insights.
 
-## Get started
+## ✨ Features
 
-1. Install dependencies
+- **Dynamic Games Dashboard**: A polished "Apple Sports" style feed of today's games with real-time status and scores.
+- **Immersive Game Details**:
+  - **Sticky Collapsing Header**: Smooth transitions between expanded scoreboard and compact tracking bar.
+  - **AI Game Summary**: Intelligence-driven match recaps with visual highlights.
+  - **Statistical Comparison**: Side-by-side efficiency metrics (FG%, 3P%, Points in Paint, etc.) with proportional comparison bars.
+  - **Star of the Game**: MVP highlights with headshots and advanced impact scores.
+- **Pre-match Insights**: Season series history and side-by-side season stats for upcoming games.
+- **Conference Standings**: Fast, categorized rankings for East and West conferences with playoff seeding badges.
+- **Native Performance**: 
+  - Zero-latency team logo loading via local asset bundling.
+  - Fluid gesture-based navigation.
+  - Dark-first design consistent with iOS system aesthetics.
 
-   ```bash
-   npm install
-   ```
+## 🚀 Tech Stack
 
-2. Start the app
+- **Framework**: [Expo SDK 54](https://expo.dev/) (React Native)
+- **Routing**: [Expo Router](https://docs.expo.dev/router/introduction/) (File-based navigation)
+- **State Management**: [@tanstack/react-query](https://tanstack.com/query/latest) (Data fetching & caching)
+- **Visuals**: `expo-linear-gradient`, `Animated` API, `Ionicons`
+- **Backend**: Private `nba-stats-api` (Express/Node.js)
 
-   ```bash
-   npx expo start
-   ```
+## 🛠️ Setup & Development
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
+### 1. Install Dependencies
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### 2. Configure API
+Update `API_BASE_URL` in `app/services/api.ts`:
+- **Simulator**: `http://localhost:3000`
+- **Physical Device**: Use your local IP (e.g., `http://192.168.x.x:3000`)
+- **Production**: Your Railway/Cloud deployment URL
 
-## Learn more
+### 3. Launch
+```bash
+npx expo start
+```
+*Press **i** for iOS simulator or scan the QR code with **Expo Go** on your physical iPhone.*
 
-To learn more about developing your project with Expo, look at the following resources:
+## 📁 Project Structure
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```text
+swish/
+├── app/
+│   ├── _layout.tsx      # Root configuration & Tab navigation
+│   ├── index.tsx        # Games feed (Main)
+│   ├── teams.tsx        # Standings screen
+│   ├── game/[id].tsx    # Polished Game Detail (Dynamic)
+│   ├── services/
+│   │   └── api.ts       # Centralized API logic
+│   └── utils/
+│       └── teamImages.ts # Local asset mapping
+├── assets/
+│   └── images/teams/    # Bundled high-res team logos
+└── docs/                # Development roadmap & API summaries
+```
 
-## Join the community
+## 📈 Development Roadmap
 
-Join our community of developers creating universal apps.
+- [x] Phase 0: Core Games Feed
+- [x] Phase 1: Immersive Game Details & AI Summary
+- [x] Phase 2: Conference Standings
+- [ ] Phase 3: Team Detail Screens (Roster, Schedule, Stats)
+- [ ] Phase 4: Player Profiles & Career Logs
+- [ ] Phase 5: News & Social Feed Integration
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+---
+*Created by [Askar](https://github.com/askar) - 2026*
