@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, ReactNode } from 'react';
 import { 
   View, 
   Text, 
@@ -8,12 +8,35 @@ import {
   RefreshControl, 
   TouchableOpacity, 
   Image,
-  ScrollView 
+  ScrollView,
+  Animated,
+  Easing,
+  Dimensions,
+  ActivityIndicator
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchGames, formatDateForAPI, getChineseDate } from './services/api';
 import { getTeamImage } from './utils/teamImages';
+
+const { width } = Dimensions.get('window');
+
+// --- Motion Tokens ---
+const Fast = 120;
+const Standard = 180;
+const AppleEasing = Easing.bezier(0.2, 0, 0, 1);
+
+// --- Color Tokens ---
+const COLORS = {
+  bg: '#0E0E11',
+  header: '#121216',
+  card: '#16161A',
+  textMain: '#FFFFFF',
+  textSecondary: '#71767A',
+  accent: '#1d9bf0',
+  divider: '#1c1c1e',
+  live: '#ef4444',
+};
 
 interface Game {
   gameId: string;
@@ -55,10 +78,40 @@ interface Game {
   };
 }
 
+// --- Animated Components ---
+
+const AnimatedSection = ({ children, index, visible }: { children: ReactNode, index: number, visible: boolean }) => {
+  const animatedValue = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.timing(animatedValue, {
+        toValue: 1,
+        duration: Standard,
+        delay: 40 + (index * 40),
+        easing: AppleEasing,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      animatedValue.setValue(0);
+    }
+  }, [visible]);
+
+  return (
+    <Animated.View style={{
+      opacity: animatedValue,
+      transform: [{ translateY: animatedValue.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }]
+    }}>
+      {children}
+    </Animated.View>
+  );
+};
+
 export default function GamesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [selectedDate, setSelectedDate] = useState<Date>(getChineseDate());
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
   const dateScrollRef = useRef<ScrollView>(null);
   const [scrollViewWidth, setScrollViewWidth] = useState(0);
   const todayIndex = 2;
@@ -67,26 +120,26 @@ export default function GamesScreen() {
     const dates: Date[] = [];
     const today = getChineseDate();
     
-    const yesterdayDate = new Date(today);
-    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-    dates.push(yesterdayDate);
-    
+    // Yesterday
     const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setDate(yesterday.getDate() - 2);
     dates.push(yesterday);
     
+    // Another Yesterday (as requested in history)
+    const yesterday2 = new Date(today);
+    yesterday2.setDate(yesterday2.getDate() - 1);
+    dates.push(yesterday2);
+    
+    // Today
     dates.push(today);
     
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    dates.push(tomorrow);
-    
-    for (let i = 2; i <= 4; i++) {
+    // Tomorrow + Next 3 days
+    for (let i = 1; i <= 4; i++) {
       const date = new Date(today);
       date.setDate(date.getDate() + i);
       dates.push(date);
     }
-    
+    console.log(dates);
     return dates;
   }, []);
 
@@ -107,6 +160,14 @@ export default function GamesScreen() {
     queryFn: () => fetchGames(selectedDate),
   });
 
+  useEffect(() => {
+    if (!isLoading && data) {
+      setIsDataLoaded(true);
+    } else {
+      setIsDataLoaded(false);
+    }
+  }, [isLoading, data, selectedDate]);
+
   const games: Game[] = data?.games || [];
 
   const formatDateLabel = (date: Date, index: number): string => {
@@ -115,12 +176,6 @@ export default function GamesScreen() {
     tomorrow.setDate(tomorrow.getDate() + 1);
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
-
-    if (index === 0) {
-      const month = date.getMonth() + 1;
-      const day = date.getDate();
-      return `${month}/${day}`;
-    }
 
     if (date.getTime() === today.getTime()) return '今天';
     if (date.getTime() === tomorrow.getTime()) return '明天';
@@ -131,12 +186,20 @@ export default function GamesScreen() {
     return `${month}/${day}`;
   };
 
-  const renderGame = ({ item }: { item: Game }) => {
+  const renderGame = ({ item, index }: { item: Game, index: number }) => {
     const isLive = item.gameStatus === 2;
     const isFinished = item.gameStatus === 3;
     const isScheduled = item.gameStatus === 1;
     const isPostponed = item.gameStatus === 6;
     
+    const getStatusText = () => {
+      if (isFinished) return '已结束';
+      if (isLive) return '直播中';
+      if (isPostponed) return '延期';
+      if (isScheduled) return '未开始';
+      return item.gameStatusText;
+    };
+
     const awayLogo = getTeamImage(item.awayTeam.abbreviation);
     const homeLogo = getTeamImage(item.homeTeam.abbreviation);
 
@@ -144,81 +207,82 @@ export default function GamesScreen() {
     const homeWin = isFinished && (item.homeTeam.score ?? 0) > (item.awayTeam.score ?? 0);
 
     return (
-      <TouchableOpacity
-        style={styles.gameRow}
-        activeOpacity={0.6}
-        onPress={() => {
-          router.push(`/game/${item.gameId}`);
-        }}
-      >
-        <View style={styles.gameContent}>
-          {/* Away Team */}
-          <View style={styles.teamContainer}>
-            <Image source={awayLogo} style={styles.teamLogoLarge} resizeMode="contain" />
-            <Text style={styles.teamNameSub} numberOfLines={1}>
-              {item.awayTeam.nameZhCN}
-            </Text>
-          </View>
+      <AnimatedSection index={index} visible={isDataLoaded}>
+        <TouchableOpacity
+          style={styles.gameCard}
+          activeOpacity={0.6}
+          onPress={() => {
+            router.push(`/game/${item.gameId}`);
+          }}
+        >
+          <View style={styles.gameContent}>
+            {/* Away Team */}
+            <View style={styles.teamSide}>
+              <Image source={awayLogo} style={styles.teamLogo} resizeMode="contain" />
+              <Text style={[styles.teamName, awayWin && styles.boldText]} numberOfLines={1}>
+                {item.awayTeam.nameZhCN}
+              </Text>
+              <Text style={styles.recordText}>{item.awayTeam.wins}-{item.awayTeam.losses}</Text>
+            </View>
 
-          {/* Middle Info (Scores or Time) */}
-          <View style={styles.middleContainer}>
-            {isScheduled ? (
-              <View style={styles.upcomingContainer}>
-                <Text style={styles.upcomingTime}>{item.gameEtFormatted?.time || '待定'}</Text>
-                <View style={styles.prematchBadge}>
-                  <Text style={styles.prematchText}>赛前</Text>
+            {/* Middle: Scores or Time */}
+            <View style={styles.middleContainer}>
+              {isScheduled ? (
+                <View style={styles.upcomingBox}>
+                  <Text style={styles.upcomingTime}>{item.gameEtFormatted?.time || '待定'}</Text>
+                  <View style={styles.prematchBadge}>
+                    <Text style={styles.prematchText}>赛前</Text>
+                  </View>
                 </View>
-              </View>
-            ) : (
-              <View style={styles.scoreRow}>
-                <Text style={[
-                  styles.mainScore, 
-                  awayWin && styles.winnerScore,
-                  isLive && styles.liveScoreText
-                ]}>
-                  {item.awayTeam.score}
-                </Text>
-                <Text style={styles.scoreDivider}>—</Text>
-                <Text style={[
-                  styles.mainScore, 
-                  homeWin && styles.winnerScore,
-                  isLive && styles.liveScoreText
-                ]}>
-                  {item.homeTeam.score}
-                </Text>
-              </View>
-            )}
-            
-            {!isScheduled && (
-              <View style={[styles.statusBadge, isLive && styles.liveStatusBadge]}>
-                <Text style={[styles.statusBadgeText, isLive && styles.liveStatusBadgeText]}>
-                  {isFinished ? '已结束' : (isLive ? '直播中' : (isPostponed ? '延期' : item.gameStatusText))}
-                </Text>
-              </View>
-            )}
-          </View>
+              ) : (
+                <View style={styles.scoreRow}>
+                  <Text style={[
+                    styles.scoreText, 
+                    awayWin && styles.boldText,
+                    !awayWin && isFinished && styles.dimmedText,
+                    isLive && styles.liveScore
+                  ]}>
+                    {item.awayTeam.score}
+                  </Text>
+                  <Text style={styles.scoreDivider}>—</Text>
+                  <Text style={[
+                    styles.scoreText, 
+                    homeWin && styles.boldText,
+                    !homeWin && isFinished && styles.dimmedText,
+                    isLive && styles.liveScore
+                  ]}>
+                    {item.homeTeam.score}
+                  </Text>
+                </View>
+              )}
+              
+              {!isScheduled && (
+                <View style={[styles.statusBadge, isLive && styles.liveBadge]}>
+                  <View style={isLive && styles.liveDot} />
+                  <Text style={[styles.statusText, isLive && styles.liveText]}>
+                    {getStatusText()}
+                  </Text>
+                </View>
+              )}
+            </View>
 
-          {/* Home Team */}
-          <View style={styles.teamContainer}>
-            <Image source={homeLogo} style={styles.teamLogoLarge} resizeMode="contain" />
-            <Text style={styles.teamNameSub} numberOfLines={1}>
-              {item.homeTeam.nameZhCN}
-            </Text>
+            {/* Home Team */}
+            <View style={styles.teamSide}>
+              <Image source={homeLogo} style={styles.teamLogo} resizeMode="contain" />
+              <Text style={[styles.teamName, homeWin && styles.boldText]} numberOfLines={1}>
+                {item.homeTeam.nameZhCN}
+              </Text>
+              <Text style={styles.recordText}>{item.homeTeam.wins}-{item.homeTeam.losses}</Text>
+            </View>
           </View>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </AnimatedSection>
     );
   };
 
-  const renderSkeletonRow = () => (
-    <View style={styles.gameRow}>
-      <View style={styles.skeletonContent} />
-    </View>
-  );
-
   return (
     <View style={styles.container}>
-      <View style={[styles.dateNavContainer, { paddingTop: insets.top }]}>
+      <View style={[styles.header, { paddingTop: insets.top }]}>
         <ScrollView
           ref={dateScrollRef}
           horizontal
@@ -247,6 +311,7 @@ export default function GamesScreen() {
                 ]}>
                   {formatDateLabel(date, index)}
                 </Text>
+                {isSelected && <View style={styles.activeDot} />}
                 {isTodayDate && !isSelected && <View style={styles.todayIndicator} />}
               </TouchableOpacity>
             );
@@ -255,14 +320,11 @@ export default function GamesScreen() {
       </View>
 
       {isLoading && !isRefetching ? (
-        <FlatList
-          data={[1, 2, 3, 4, 5]}
-          renderItem={renderSkeletonRow}
-          keyExtractor={(item) => `skeleton-${item}`}
-          contentContainerStyle={styles.list}
-        />
+        <View style={styles.center}>
+          <ActivityIndicator size="small" color={COLORS.textSecondary} />
+        </View>
       ) : error ? (
-        <View style={styles.errorContainer}>
+        <View style={styles.center}>
           <Text style={styles.errorText}>
             {error instanceof Error ? error.message : '加载失败'}
           </Text>
@@ -276,9 +338,19 @@ export default function GamesScreen() {
           renderItem={renderGame}
           keyExtractor={(item) => item.gameId}
           contentContainerStyle={styles.list}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor="#1d9bf0" />
+            <RefreshControl 
+              refreshing={isRefetching} 
+              onRefresh={refetch} 
+              tintColor={COLORS.accent} 
+              progressViewOffset={insets.top + 60}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>今天没有比赛安排</Text>
+            </View>
           }
         />
       )}
@@ -289,82 +361,102 @@ export default function GamesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: COLORS.bg,
   },
-  dateNavContainer: {
-    backgroundColor: '#000000',
-    borderBottomWidth: 1,
-    borderBottomColor: '#16181c',
+  header: {
+    backgroundColor: COLORS.header,
+    borderBottomWidth: 0.5,
+    borderBottomColor: COLORS.divider,
   },
   dateScrollView: {
     flexGrow: 0,
   },
   dateScrollContent: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     paddingVertical: 12,
   },
   dateButton: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 8,
     marginRight: 8,
-    borderRadius: 8,
-    minWidth: 60,
+    borderRadius: 12,
+    minWidth: 70,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   dateButtonActive: {
-    backgroundColor: '#1d9bf0',
+    backgroundColor: COLORS.card,
   },
   dateButtonText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '500',
-    color: '#71767a',
+    color: COLORS.textSecondary,
   },
   dateButtonTextActive: {
-    color: '#ffffff',
-    fontWeight: '600',
+    color: COLORS.textMain,
+    fontWeight: '700',
   },
   dateButtonTextToday: {
-    color: '#1d9bf0',
+    color: COLORS.accent,
+  },
+  activeDot: {
+    position: 'absolute',
+    bottom: 4,
+    width: 12,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: COLORS.accent,
   },
   todayIndicator: {
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#1d9bf0',
+    backgroundColor: COLORS.accent,
     marginTop: 4,
   },
-  list: {
-    paddingVertical: 8,
-  },
-  gameRow: {
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-    minHeight: 140,
+  center: {
+    flex: 1,
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  list: {
+    padding: 16,
+    paddingTop: 8,
+  },
+  gameCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 12,
   },
   gameContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  teamContainer: {
+  teamSide: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  teamLogoLarge: {
-    width: 56,
-    height: 56,
+  teamLogo: {
+    width: 44,
+    height: 44,
     marginBottom: 8,
   },
-  teamNameSub: {
+  teamName: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#ffffff',
+    color: COLORS.textMain,
     textAlign: 'center',
+    marginBottom: 2,
+  },
+  recordText: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
   },
   middleContainer: {
-    flex: 1.5,
+    flex: 1.2,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -372,85 +464,88 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
-  mainScore: {
-    fontSize: 32,
+  scoreText: {
+    fontSize: 28,
     fontWeight: '700',
-    color: '#71767a', // Non-winners are grayed out
-    width: 60,
+    color: COLORS.textMain,
+    width: 50,
     textAlign: 'center',
   },
-  winnerScore: {
-    color: '#ffffff', // Winner/Active is white
+  dimmedText: {
+    color: COLORS.textSecondary,
   },
-  liveScoreText: {
-    color: '#1d9bf0', // Live scores in blue
+  boldText: {
+    fontWeight: '800',
+  },
+  liveScore: {
+    color: COLORS.accent,
   },
   scoreDivider: {
-    fontSize: 20,
-    color: '#2f3336',
+    fontSize: 16,
+    color: COLORS.divider,
     marginHorizontal: 4,
   },
   statusBadge: {
-    backgroundColor: '#16181c',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff08',
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 4,
+    borderRadius: 6,
   },
-  statusBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#71767a',
+  statusText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  liveStatusBadge: {
-    backgroundColor: '#1d9bf020',
-    borderColor: '#1d9bf0',
-    borderWidth: 1,
+  liveBadge: {
+    backgroundColor: '#ef444415',
   },
-  liveStatusBadgeText: {
-    color: '#1d9bf0',
+  liveText: {
+    color: COLORS.live,
   },
-  upcomingContainer: {
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.live,
+    marginRight: 6,
+  },
+  upcomingBox: {
     alignItems: 'center',
   },
   upcomingTime: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#ffffff',
-    marginBottom: 8,
+    fontSize: 20,
+    fontWeight: '800',
+    color: COLORS.textMain,
+    marginBottom: 6,
   },
   prematchBadge: {
-    backgroundColor: '#16181c',
-    paddingHorizontal: 12,
+    backgroundColor: '#ffffff08',
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#2f3336',
+    borderRadius: 6,
   },
   prematchText: {
-    fontSize: 12,
-    color: '#71767a',
-    fontWeight: '600',
+    fontSize: 10,
+    color: COLORS.textSecondary,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
-  separator: {
-    height: 1,
-    backgroundColor: '#16181c',
-    marginHorizontal: 16,
-  },
-  skeletonContent: {
-    height: 100,
-    backgroundColor: '#16181c',
-    borderRadius: 12,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  emptyContainer: {
+    paddingTop: 100,
     alignItems: 'center',
-    paddingHorizontal: 32,
+  },
+  emptyText: {
+    color: COLORS.textSecondary,
+    fontSize: 15,
   },
   errorText: {
-    color: '#ef4444',
+    color: COLORS.live,
     fontSize: 16,
     marginBottom: 16,
     textAlign: 'center',
@@ -458,11 +553,11 @@ const styles = StyleSheet.create({
   retryButton: {
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: '#1d9bf0',
-    borderRadius: 8,
+    backgroundColor: COLORS.accent,
+    borderRadius: 12,
   },
   retryText: {
-    color: '#ffffff',
+    color: COLORS.textMain,
     fontSize: 16,
     fontWeight: '600',
   },
