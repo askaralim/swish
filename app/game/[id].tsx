@@ -175,7 +175,7 @@ export default function GameDetailScreen() {
   const { data: summaryData } = useQuery({
     queryKey: ['gameSummary', id],
     queryFn: () => fetchGameSummary(id),
-    enabled: !!game && (game.gameStatus === 3 || game.gameStatus === 1), // Enable for scheduled too
+    enabled: !!game && game.gameStatus === 3, 
   });
 
   const { data: teamStatsAway, isLoading: isLoadingAway, isError: isErrorAway } = useQuery({
@@ -277,6 +277,14 @@ export default function GameDetailScreen() {
   const isScheduled = Number(game.gameStatus) === 1 || Number(game.gameStatus) === 6;
   const isFinished = Number(game.gameStatus) === 3;
 
+  const navigateToPlayer = (playerId: string) => {
+    if (game.gameStatus === 2 || game.gameStatus === 3) {
+      router.push(`/game/${id}/player/${playerId}`);
+    } else {
+      router.push(`/player/${playerId}`);
+    }
+  };
+
   // --- Render Helpers ---
 
   const renderStatRow = (label: string, awayVal: string | number, homeVal: string | number, awayPct: number, homePct: number, awayDisplay?: string, homeDisplay?: string) => (
@@ -314,7 +322,7 @@ export default function GameDetailScreen() {
       <View style={styles.perfRow} key={label}>
         <TouchableOpacity 
           style={styles.perfPlayerSide}
-          onPress={() => awayPerf.athleteId && router.push(`/player/${awayPerf.athleteId}`)}
+          onPress={() => awayPerf.athleteId && navigateToPlayer(awayPerf.athleteId)}
         >
           <View style={styles.perfPlayerInfo}>
             <Text style={styles.perfName} numberOfLines={1}>{awayPerf.shortName}</Text>
@@ -327,7 +335,7 @@ export default function GameDetailScreen() {
         
         <TouchableOpacity 
           style={styles.perfPlayerSide}
-          onPress={() => homePerf.athleteId && router.push(`/player/${homePerf.athleteId}`)}
+          onPress={() => homePerf.athleteId && navigateToPlayer(homePerf.athleteId)}
         >
           <Image source={{ uri: homePerf.headshot }} style={[styles.perfHeadshot, { marginLeft: 0, marginRight: 8 }]} />
           <View style={[styles.perfPlayerInfo, { alignItems: 'flex-start' }]}>
@@ -610,7 +618,7 @@ export default function GameDetailScreen() {
             <Text style={styles.sectionHeader}>主宰比赛</Text>
             <TouchableOpacity 
               style={styles.mvpCompactCard}
-              onPress={() => game.boxscore?.gameMVP?.athleteId && router.push(`/player/${game.boxscore.gameMVP.athleteId}`)}
+              onPress={() => game.boxscore?.gameMVP?.athleteId && navigateToPlayer(game.boxscore.gameMVP.athleteId)}
             >
               <Image source={{ uri: game.boxscore.gameMVP.headshot }} style={styles.mvpHeadshot} />
               <View style={styles.mvpInfo}>
@@ -712,7 +720,7 @@ export default function GameDetailScreen() {
         <View key={`name-${player.id}`} style={styles.playerRow}>
           <TouchableOpacity 
             style={styles.playerPinnedColumn}
-            onPress={() => router.push(`/player/${player.id}`)}
+            onPress={() => navigateToPlayer(player.id)}
           >
             <Image source={{ uri: `https://a.espncdn.com/i/headshots/nba/600/${player.id}.png` }} style={styles.playerAvatar} />
             <View style={styles.playerNameContainer}>
@@ -776,7 +784,7 @@ export default function GameDetailScreen() {
       <View key={`name-${player.athleteId}`} style={[styles.playerRow, player.didNotPlay && { opacity: 0.5 }]}>
         <TouchableOpacity 
           style={styles.playerPinnedColumn}
-          onPress={() => router.push(`/player/${player.athleteId}`)}
+          onPress={() => navigateToPlayer(player.athleteId)}
         >
           <Image source={{ uri: player.headshot }} style={styles.playerAvatar} />
           <View style={styles.playerNameContainer}>
@@ -1017,10 +1025,10 @@ export default function GameDetailScreen() {
               <Text style={[styles.tabText, activeTab === 'game' && styles.tabTextActive]}>比赛</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => handleTabChange('away')} style={styles.tab}>
-              <Text style={[styles.tabText, activeTab === 'away' && styles.tabTextActive]}>{awayTeam.nameZhCN}</Text>
+              <Text style={[styles.tabText, activeTab === 'away' && styles.tabTextActive]}>{awayTeam.nameZhCN || awayTeam.abbreviation}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => handleTabChange('home')} style={styles.tab}>
-              <Text style={[styles.tabText, activeTab === 'home' && styles.tabTextActive]}>{homeTeam.nameZhCN}</Text>
+              <Text style={[styles.tabText, activeTab === 'home' && styles.tabTextActive]}>{homeTeam.nameZhCN || homeTeam.abbreviation}</Text>
             </TouchableOpacity>
           </View>
           <Animated.View style={[styles.tabIndicator, { 

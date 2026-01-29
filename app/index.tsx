@@ -216,7 +216,7 @@ export default function GamesScreen() {
             <View style={styles.teamSide}>
               <Image source={awayLogo} style={styles.teamLogo} resizeMode="contain" />
               <Text style={[styles.teamName, awayWin && styles.boldText]} numberOfLines={1}>
-                {item.awayTeam.nameZhCN}
+                {item.awayTeam.nameZhCN || item.awayTeam.abbreviation}
               </Text>
               <Text style={styles.recordText}>{item.awayTeam.wins}-{item.awayTeam.losses}</Text>
             </View>
@@ -280,7 +280,7 @@ export default function GamesScreen() {
             <View style={styles.teamSide}>
               <Image source={homeLogo} style={styles.teamLogo} resizeMode="contain" />
               <Text style={[styles.teamName, homeWin && styles.boldText]} numberOfLines={1}>
-                {item.homeTeam.nameZhCN}
+                {item.homeTeam.nameZhCN || item.homeTeam.abbreviation}
               </Text>
               <Text style={styles.recordText}>{item.homeTeam.wins}-{item.homeTeam.losses}</Text>
             </View>

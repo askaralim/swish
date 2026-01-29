@@ -91,6 +91,12 @@ export default function RootLayout() {
             href: null,
           }}
         />
+        <Tabs.Screen
+          name="game/[id]/player/[playerId]"
+          options={{
+            href: null,
+          }}
+        />
       </Tabs>
     </QueryClientProvider>
   );
