@@ -28,7 +28,7 @@ import { AnimatedSection } from '../../src/components/AnimatedSection';
 
 const { width } = Dimensions.get('window');
 const HEADER_EXPANDED_HEIGHT = 220;
-const HEADER_COLLAPSED_HEIGHT = 60;
+const HEADER_COLLAPSED_HEIGHT = 100;
 
 export default function PlayerDetailScreen() {
   const { id: playerId } = useLocalSearchParams<{ id: string }>();
@@ -483,16 +483,16 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: COLORS.bg,
+    backgroundColor: COLORS.header,
     zIndex: 10,
     overflow: 'hidden',
   },
   navBar: {
-    height: HEADER_COLLAPSED_HEIGHT,
+    height: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
   },
   iconButton: {
     width: 40,
@@ -509,6 +509,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 60,
     right: 60,
+    top: 0,
+    bottom: 0,
     justifyContent: 'center',
   },
   compactPhoto: {
@@ -523,7 +525,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   expandedContent: {
-    height: HEADER_EXPANDED_HEIGHT - HEADER_COLLAPSED_HEIGHT - 40,
+    height: 120,
     paddingHorizontal: 20,
     justifyContent: 'center',
   },
