@@ -14,6 +14,7 @@ const queryClient = new QueryClient({
 
 export default function RootLayout() {
   const insets = useSafeAreaInsets();
+  console.log('RootLayout rendered');
   
   return (
     <QueryClientProvider client={queryClient}>
@@ -52,6 +53,42 @@ export default function RootLayout() {
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="people-outline" size={size} color={color} />
             ),
+          }}
+        />
+        <Tabs.Screen
+          name="players"
+          options={{
+            title: '数据榜',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="stats-chart-outline" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="news"
+          options={{
+            title: '新闻',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="newspaper-outline" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="game/[id]"
+          options={{
+            href: null,
+          }}
+        />
+        <Tabs.Screen
+          name="player/[id]"
+          options={{
+            href: null,
+          }}
+        />
+        <Tabs.Screen
+          name="team/[id]"
+          options={{
+            href: null,
           }}
         />
       </Tabs>

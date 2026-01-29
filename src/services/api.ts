@@ -1,13 +1,9 @@
 /**
  * API Configuration
  */
-// API Configuration
-// IMPORTANT: For iOS physical device, localhost won't work!
-// Use your computer's IP address instead (e.g., http://192.168.1.100:3000)
-// Find your IP: macOS: System Preferences > Network, or run: ipconfig getifaddr en0
 const API_BASE_URL = __DEV__
-  ? 'http://192.168.0.100:3000'  // Works for iOS Simulator only
-  : 'https://your-railway-app.up.railway.app';  // Update with your Railway URL
+  ? 'http://192.168.0.100:3000'  // Local development
+  : 'https://your-railway-app.up.railway.app';  // Production
 
 /**
  * Parse API response
@@ -16,7 +12,7 @@ async function parseResponse(response: Response) {
   const data = await response.json();
 
   if (data.success === true) {
-    return data.data; // Extract data from wrapper
+    return data.data; 
   }
 
   if (data.success === false && data.error) {
@@ -34,7 +30,7 @@ async function parseResponse(response: Response) {
 /**
  * Make API request
  */
-async function apiRequest(endpoint: string, options: RequestInit = {}) {
+async function apiRequest(endpoint: string, options: RequestInit = {}, returnFullResponse: boolean = false) {
   const url = endpoint.startsWith('http') 
     ? endpoint 
     : `${API_BASE_URL}${endpoint}`;
@@ -54,13 +50,21 @@ async function apiRequest(endpoint: string, options: RequestInit = {}) {
     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
   }
 
+  if (returnFullResponse) {
+    const data = await response.json();
+    if (data.success === false && data.error) {
+      throw new Error(data.error.message || 'API error');
+    }
+    return data;
+  }
+
   return await parseResponse(response);
 }
 
 /**
  * GET request helper
  */
-export async function apiGet(endpoint: string, params: Record<string, any> = {}) {
+export async function apiGet(endpoint: string, params: Record<string, any> = {}, returnFullResponse: boolean = false) {
   const queryString = new URLSearchParams(
     Object.entries(params).reduce((acc, [key, value]) => {
       if (value !== null && value !== undefined) {
@@ -71,7 +75,7 @@ export async function apiGet(endpoint: string, params: Record<string, any> = {})
   ).toString();
   
   const url = queryString ? `${endpoint}?${queryString}` : endpoint;
-  return apiRequest(url, { method: 'GET' });
+  return apiRequest(url, { method: 'GET' }, returnFullResponse);
 }
 
 /**
@@ -106,66 +110,42 @@ export function getChineseDate(): Date {
   return new Date(year, month - 1, day);
 }
 
-/**
- * Fetch today's games
- */
+// --- API Endpoints ---
+
 export async function fetchGames(date?: Date) {
   const dateParam = date ? formatDateForAPI(date) : formatDateForAPI(getChineseDate());
   return apiGet('/api/v1/nba/games/today', { date: dateParam });
 }
 
-/**
- * Fetch team standings
- */
 export async function fetchStandings() {
   return apiGet('/api/v1/nba/standings');
 }
 
-/**
- * Fetch game detail
- */
 export async function fetchGameDetail(gameId: string) {
   return apiGet(`/api/v1/nba/games/${gameId}`);
 }
 
-/**
- * Fetch game summary (AI)
- */
 export async function fetchGameSummary(gameId: string) {
   return apiGet(`/api/v1/nba/games/${gameId}/summary`);
 }
 
-/**
- * Fetch team overview
- */
 export async function fetchTeamOverview(teamAbbreviation: string) {
   return apiGet(`/api/v1/nba/teams/${teamAbbreviation}`);
 }
 
-/**
- * Fetch team leaders
- */
 export async function fetchTeamLeaders(teamAbbreviation: string) {
   return apiGet(`/api/v1/nba/teams/${teamAbbreviation}/leaders`);
 }
 
-/**
- * Fetch team recent games
- */
 export async function fetchTeamRecentGames(teamAbbreviation: string, params: { seasontype?: number, page?: number, limit?: number } = {}) {
   const { seasontype = 2, page = 1, limit = 20 } = params;
   return apiGet(`/api/v1/nba/teams/${teamAbbreviation}/recent-games`, { seasontype, page, limit });
 }
 
-/**
- * Fetch team schedule
- */
 export async function fetchTeamSchedule(teamAbbreviation: string, params: { seasontype?: number, page?: number, limit?: number } = {}) {
   const { seasontype = 2, page = 1, limit = 20 } = params;
-  return apiGet(`/api/v1/nba/teams/${teamAbbreviation}/schedule`, { seasontype, page, limit });
+  return apiGet(`/api/v1/nba/teams/${teamAbbreviation}/schedule`, { seasontype, page, limit }, true);
 }
-
-// --- Player Endpoints ---
 
 export async function fetchPlayerDetails(playerId: string) {
   return apiGet(`/api/v1/nba/players/${playerId}`);
@@ -189,4 +169,47 @@ export async function fetchPlayerAdvancedStats(playerId: string) {
 
 export async function fetchPlayerGameLog(playerId: string) {
   return apiGet(`/api/v1/nba/players/${playerId}/gamelog`);
+}
+
+export async function fetchPlayerStats(params: {
+  season?: string;
+  position?: string;
+  conference?: string;
+  page?: number;
+  limit?: number;
+  sort?: string;
+} = {}) {
+  const {
+    season = '2026|2',
+    position = 'all-positions',
+    conference = '0',
+    page = 1,
+    limit = 100, 
+    sort = 'offensive.avgPoints:desc'
+  } = params;
+  
+  return apiGet('/api/v1/nba/stats/players', {
+    season,
+    position,
+    conference,
+    page,
+    limit,
+    sort
+  });
+}
+
+/**
+ * Fetch NBA news (tweets from Shams, ESPN NBA, etc.)
+ */
+export async function fetchNews(params: {
+  refresh?: boolean;
+  page?: number;
+  limit?: number;
+} = {}) {
+  const { refresh = false, page = 1, limit = 20 } = params;
+  return apiGet('/api/v1/nba/news', {
+    ...(refresh && { refresh: 'true' }),
+    page,
+    limit
+  }, true);
 }

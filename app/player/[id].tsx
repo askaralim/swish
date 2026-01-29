@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   View, 
   Text, 
@@ -11,7 +11,6 @@ import {
   ActivityIndicator, 
   Dimensions, 
   Animated, 
-  Easing, 
   Platform 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,56 +21,14 @@ import {
   fetchPlayerCurrentStats, 
   fetchPlayerRegularStats, 
   fetchPlayerGameLog 
-} from '../services/api';
-import { getTeamImage } from '../utils/teamImages';
+} from '../../src/services/api';
+import { getTeamImage } from '../../src/utils/teamImages';
+import { COLORS, MOTION } from '../../src/constants/theme';
+import { AnimatedSection } from '../../src/components/AnimatedSection';
 
 const { width } = Dimensions.get('window');
 const HEADER_EXPANDED_HEIGHT = 220;
 const HEADER_COLLAPSED_HEIGHT = 60;
-
-// Colors
-const COLORS = {
-  bg: '#000000',
-  card: '#1c1c1e',
-  accent: '#1d9bf0',
-  textMain: '#ffffff',
-  textSecondary: '#8e8e93',
-  divider: '#2c2c2e',
-  win: '#10b981',
-  loss: '#ef4444'
-};
-
-// Motion System
-const Fast = 120;
-const Standard = 180;
-const AppleEasing = Easing.bezier(0.2, 0, 0, 1);
-
-const AnimatedSection = ({ children, index, visible }: { children: React.ReactNode, index: number, visible: boolean }) => {
-  const animatedValue = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (visible) {
-      Animated.timing(animatedValue, {
-        toValue: 1,
-        duration: Standard,
-        delay: index * 40,
-        easing: AppleEasing,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [visible, index]);
-
-  const translateY = animatedValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [8, 0],
-  });
-
-  return (
-    <Animated.View style={{ opacity: animatedValue, transform: [{ translateY }] }}>
-      {children}
-    </Animated.View>
-  );
-};
 
 export default function PlayerDetailScreen() {
   const { id: playerId } = useLocalSearchParams<{ id: string }>();
@@ -83,20 +40,20 @@ export default function PlayerDetailScreen() {
   const scrollY = useRef(new Animated.Value(0)).current;
   const headerOpacity = useRef(new Animated.Value(0)).current;
   const tabIndicatorPos = useRef(new Animated.Value(0)).current;
+  const tabContentAnim = useRef(new Animated.Value(0)).current;
 
-  // Data Fetching
   const { data: details, isLoading: isLoadingDetails } = useQuery({
     queryKey: ['playerDetails', playerId],
     queryFn: () => fetchPlayerDetails(playerId),
   });
 
-  const { data: bio } = useQuery({
+  const { data: bio, isLoading: isLoadingBio } = useQuery({
     queryKey: ['playerBio', playerId],
     queryFn: () => fetchPlayerBio(playerId),
     enabled: !!details,
   });
 
-  const { data: currentStats } = useQuery({
+  const { data: currentStats, isLoading: isLoadingCurrentStats } = useQuery({
     queryKey: ['playerCurrentStats', playerId],
     queryFn: () => fetchPlayerCurrentStats(playerId),
     enabled: !!details,
@@ -114,30 +71,54 @@ export default function PlayerDetailScreen() {
     enabled: !!details,
   });
 
+  const kpis = useMemo(() => {
+    if (!currentStats?.stats) return [];
+    const s = currentStats.stats;
+    return [
+      { label: '得分', value: s.avgPoints || '0.0' },
+      { label: '篮板', value: s.avgRebounds || '0.0' },
+      { label: '助攻', value: s.avgAssists || '0.0' },
+      { label: '命中率', value: s.fieldGoalPct ? `${s.fieldGoalPct}%` : '0.0%' },
+      { label: '抢断', value: s.avgSteals || '0.0' },
+      { label: '盖帽', value: s.avgBlocks || '0.0' },
+      { label: '三分率', value: s.threePointFieldGoalPct ? `${s.threePointFieldGoalPct}%` : '0.0%' },
+      { label: '罚球率', value: s.freeThrowPct ? `${s.freeThrowPct}%` : '0.0%' },
+    ];
+  }, [currentStats]);
+
   useEffect(() => {
-    if (!isLoadingDetails && details) {
+    if (!isLoadingDetails && details && !isLoadingBio && !isLoadingCurrentStats) {
       setIsDataLoaded(true);
       Animated.timing(headerOpacity, {
         toValue: 1,
-        duration: Fast,
-        easing: AppleEasing,
-        useNativeDriver: true,
+        duration: MOTION.Fast,
+        easing: MOTION.AppleEasing,
+        useNativeDriver: false,
       }).start();
     }
-  }, [isLoadingDetails, details]);
+  }, [isLoadingDetails, details, isLoadingBio, isLoadingCurrentStats, headerOpacity]);
 
   const handleTabChange = (tab: 'overview' | 'stats' | 'log') => {
     if (tab === activeTab) return;
     const targetPos = tab === 'overview' ? 0 : tab === 'stats' ? 1 : 2;
 
-    Animated.timing(tabIndicatorPos, {
-      toValue: targetPos,
-      duration: Fast,
-      easing: AppleEasing,
-      useNativeDriver: false,
-    }).start();
-
-    setActiveTab(tab);
+    Animated.parallel([
+      Animated.timing(tabIndicatorPos, {
+        toValue: targetPos,
+        duration: MOTION.Standard,
+        easing: MOTION.AppleEasing,
+        useNativeDriver: false,
+      }),
+      Animated.timing(tabContentAnim, {
+        toValue: 1,
+        duration: MOTION.Fast,
+        easing: MOTION.AppleEasing,
+        useNativeDriver: false,
+      })
+    ]).start(() => {
+      setActiveTab(tab);
+      tabContentAnim.setValue(0);
+    });
   };
 
   if (isLoadingDetails) {
@@ -152,19 +133,19 @@ export default function PlayerDetailScreen() {
 
   // Animations
   const headerHeight = scrollY.interpolate({
-    inputRange: [0, HEADER_EXPANDED_HEIGHT - HEADER_COLLAPSED_HEIGHT],
+    inputRange: [0, 120],
     outputRange: [HEADER_EXPANDED_HEIGHT + insets.top, HEADER_COLLAPSED_HEIGHT + insets.top],
     extrapolate: 'clamp',
   });
 
   const expandedOpacity = scrollY.interpolate({
-    inputRange: [0, (HEADER_EXPANDED_HEIGHT - HEADER_COLLAPSED_HEIGHT) / 2],
+    inputRange: [0, 80],
     outputRange: [1, 0],
     extrapolate: 'clamp',
   });
 
   const collapsedOpacity = scrollY.interpolate({
-    inputRange: [(HEADER_EXPANDED_HEIGHT - HEADER_COLLAPSED_HEIGHT) / 2, HEADER_EXPANDED_HEIGHT - HEADER_COLLAPSED_HEIGHT],
+    inputRange: [80, 120],
     outputRange: [0, 1],
     extrapolate: 'clamp',
   });
@@ -172,20 +153,27 @@ export default function PlayerDetailScreen() {
   // --- Render Helpers ---
 
   const renderKPIStats = () => {
-    if (!currentStats?.stats) return null;
-    const s = currentStats.stats;
+    if (isLoadingCurrentStats) {
+      return (
+        <View style={[styles.kpiContainer, { height: 160, justifyContent: 'center' }]}>
+          <ActivityIndicator size="small" color={COLORS.textSecondary} />
+        </View>
+      );
+    }
     
-    const kpis = [
-      { label: '得分', value: s.avgPoints || '0.0' },
-      { label: '篮板', value: s.avgRebounds || '0.0' },
-      { label: '助攻', value: s.avgAssists || '0.0' },
-      { label: '命中率', value: s.fieldGoalPct ? `${s.fieldGoalPct}%` : '0.0%' },
-    ];
+    if (kpis.length === 0) return null;
 
     return (
       <View style={styles.kpiContainer}>
         {kpis.map((kpi, idx) => (
-          <View key={idx} style={styles.kpiBox}>
+          <View 
+            key={idx} 
+            style={[
+              styles.kpiBox, 
+              idx >= 4 && { marginTop: 16, borderTopWidth: 0.5, borderTopColor: COLORS.divider, paddingTop: 16 },
+              (idx === 3 || idx === 7) && { borderRightWidth: 0 }
+            ]}
+          >
             <Text style={styles.kpiValue}>{kpi.value}</Text>
             <Text style={styles.kpiLabel}>{kpi.label}</Text>
           </View>
@@ -202,7 +190,7 @@ export default function PlayerDetailScreen() {
 
       <AnimatedSection index={1} visible={isDataLoaded}>
         <View style={styles.section}>
-          <Text style={styles.sectionHeader}>个人资料</Text>
+          <Text style={styles.sectionHeader}>资料</Text>
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
               <View style={styles.infoCol}>
@@ -245,12 +233,12 @@ export default function PlayerDetailScreen() {
       {bio?.awards && bio.awards.length > 0 && (
         <AnimatedSection index={2} visible={isDataLoaded}>
           <View style={styles.section}>
-            <Text style={styles.sectionHeader}>荣誉与奖项</Text>
+            <Text style={styles.sectionHeader}>荣誉</Text>
             <View style={styles.infoCard}>
               {bio.awards.map((award: any, idx: number) => (
                 <View key={idx} style={[styles.awardRow, idx > 0 && styles.awardDivider]}>
                   <Ionicons name="trophy-outline" size={16} color={COLORS.accent} />
-                  <Text style={styles.awardText}>{award.displayValue || award.name}</Text>
+                  <Text style={styles.awardText}>{award.displayCount} {award.name}</Text>
                 </View>
               ))}
             </View>
@@ -263,7 +251,7 @@ export default function PlayerDetailScreen() {
   const renderStatsTab = () => {
     if (!regularStats) return <ActivityIndicator size="small" color={COLORS.textSecondary} style={{marginTop: 40}} />;
 
-    const labels = regularStats.displayNames || regularStats.labels || [];
+    const labels = regularStats.labels || [];
     const stats = regularStats.statistics || [];
     const totals = regularStats.totals || [];
 
@@ -272,37 +260,52 @@ export default function PlayerDetailScreen() {
         <AnimatedSection index={0} visible={isDataLoaded}>
           <View style={styles.section}>
             <Text style={styles.sectionHeader}>常规赛场均数据</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tableScroll}>
-              <View>
-                {/* Header */}
+            
+            <View style={styles.gridContainer}>
+              {/* Pinned Column (Season) */}
+              <View style={styles.pinnedColumn}>
                 <View style={styles.tableHeader}>
                   <Text style={styles.seasonCol}>赛季</Text>
-                  {labels.map((label: string, idx: number) => (
-                    <Text key={idx} style={styles.statCol}>{label}</Text>
-                  ))}
                 </View>
-                
-                {/* Body */}
                 {stats.map((row: any, idx: number) => (
-                  <View key={idx} style={styles.tableRow}>
+                  <View key={`season-${idx}`} style={styles.tableRow}>
                     <Text style={styles.seasonColText}>{row.season}</Text>
-                    {row.stats.map((val: string, sIdx: number) => (
-                      <Text key={sIdx} style={styles.statColText}>{val}</Text>
-                    ))}
                   </View>
                 ))}
-
-                {/* Career Totals */}
                 {totals.length > 0 && (
                   <View style={styles.totalsRow}>
                     <Text style={styles.seasonColTotal}>生涯总计</Text>
-                    {totals.map((val: string, idx: number) => (
-                      <Text key={idx} style={styles.statColTotal}>{val}</Text>
-                    ))}
                   </View>
                 )}
               </View>
-            </ScrollView>
+
+              {/* Scrollable Stats */}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View>
+                  <View style={styles.tableHeader}>
+                    {labels.map((label: string, idx: number) => (
+                      <Text key={idx} style={styles.statCol}>{label}</Text>
+                    ))}
+                  </View>
+                  
+                  {stats.map((row: any, idx: number) => (
+                    <View key={`row-${idx}`} style={styles.tableRow}>
+                      {row.stats.map((val: string, sIdx: number) => (
+                        <Text key={sIdx} style={styles.statColText}>{val}</Text>
+                      ))}
+                    </View>
+                  ))}
+
+                  {totals.length > 0 && (
+                    <View style={styles.totalsRow}>
+                      {totals.map((val: string, idx: number) => (
+                        <Text key={idx} style={styles.statColTotal}>{val}</Text>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              </ScrollView>
+            </View>
           </View>
         </AnimatedSection>
       </View>
@@ -312,7 +315,6 @@ export default function PlayerDetailScreen() {
   const renderLogTab = () => {
     if (!gameLog) return <ActivityIndicator size="small" color={COLORS.textSecondary} style={{marginTop: 40}} />;
 
-    const labels = ['日期', '对手', '得分', '篮板', '助攻', '命中率'];
     const events = gameLog.events || [];
 
     return (
@@ -328,7 +330,6 @@ export default function PlayerDetailScreen() {
                 const pts = event.stats[0];
                 const reb = event.stats[1];
                 const ast = event.stats[2];
-                const fgPct = event.stats[8];
 
                 return (
                   <TouchableOpacity 
@@ -403,7 +404,7 @@ export default function PlayerDetailScreen() {
               </View>
               <Text style={styles.playerNameMain}>{details.name}</Text>
               <Text style={styles.playerMeta}>
-                #{details.jersey || '-'} • {details.position || '-'}
+                #{details.jersey?.replace('##', '') || '-'} • {details.position || '-'}
               </Text>
             </View>
           </View>
@@ -441,7 +442,20 @@ export default function PlayerDetailScreen() {
         contentContainerStyle={{ paddingTop: HEADER_EXPANDED_HEIGHT + insets.top + 20 }}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View style={{ opacity: headerOpacity }}>
+        <Animated.View style={{ 
+          opacity: headerOpacity,
+          transform: [{
+            translateX: tabContentAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 16]
+            })
+          }, {
+            scale: tabContentAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [1, 0.98]
+            })
+          }]
+        }}>
           {activeTab === 'overview' ? renderOverviewTab() : 
            activeTab === 'stats' ? renderStatsTab() : renderLogTab()}
         </Animated.View>
@@ -599,13 +613,14 @@ const styles = StyleSheet.create({
   },
   kpiContainer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     backgroundColor: COLORS.card,
     borderRadius: 16,
     paddingVertical: 16,
     marginBottom: 24,
   },
   kpiBox: {
-    flex: 1,
+    width: '25%',
     alignItems: 'center',
     borderRightWidth: 0.5,
     borderRightColor: COLORS.divider,
@@ -671,10 +686,17 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     flex: 1,
   },
-  tableScroll: {
+  gridContainer: {
+    flexDirection: 'row',
     backgroundColor: COLORS.card,
     borderRadius: 16,
+    overflow: 'hidden',
     padding: 12,
+  },
+  pinnedColumn: {
+    width: 80,
+    backgroundColor: COLORS.card,
+    zIndex: 1,
   },
   tableHeader: {
     flexDirection: 'row',
@@ -682,9 +704,10 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.divider,
     paddingBottom: 8,
     marginBottom: 8,
+    height: 32,
   },
   seasonCol: {
-    width: 100,
+    width: 80,
     color: COLORS.textSecondary,
     fontSize: 11,
     fontWeight: '700',
@@ -698,12 +721,13 @@ const styles = StyleSheet.create({
   },
   tableRow: {
     flexDirection: 'row',
-    paddingVertical: 10,
+    height: 38,
     borderBottomWidth: 0.5,
     borderBottomColor: 'rgba(255,255,255,0.03)',
+    alignItems: 'center',
   },
   seasonColText: {
-    width: 100,
+    width: 80,
     color: COLORS.textMain,
     fontSize: 13,
     fontWeight: '500',
@@ -718,13 +742,14 @@ const styles = StyleSheet.create({
   },
   totalsRow: {
     flexDirection: 'row',
-    paddingVertical: 12,
+    height: 44,
     marginTop: 8,
     borderTopWidth: 1,
     borderTopColor: COLORS.divider,
+    alignItems: 'center',
   },
   seasonColTotal: {
-    width: 100,
+    width: 80,
     color: COLORS.accent,
     fontSize: 13,
     fontWeight: '700',

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState, useMemo, useRef, useEffect, ReactNode } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -8,35 +8,16 @@ import {
   RefreshControl, 
   TouchableOpacity, 
   Image,
-  ScrollView,
-  Animated,
-  Easing,
+  ScrollView, 
   Dimensions,
   ActivityIndicator
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { fetchGames, formatDateForAPI, getChineseDate } from './services/api';
-import { getTeamImage } from './utils/teamImages';
-
-const { width } = Dimensions.get('window');
-
-// --- Motion Tokens ---
-const Fast = 120;
-const Standard = 180;
-const AppleEasing = Easing.bezier(0.2, 0, 0, 1);
-
-// --- Color Tokens ---
-const COLORS = {
-  bg: '#0E0E11',
-  header: '#121216',
-  card: '#16161A',
-  textMain: '#FFFFFF',
-  textSecondary: '#71767A',
-  accent: '#1d9bf0',
-  divider: '#1c1c1e',
-  live: '#ef4444',
-};
+import { fetchGames, formatDateForAPI, getChineseDate } from '../src/services/api';
+import { getTeamImage } from '../src/utils/teamImages';
+import { COLORS } from '../src/constants/theme';
+import { AnimatedSection } from '../src/components/AnimatedSection';
 
 interface Game {
   gameId: string;
@@ -78,34 +59,7 @@ interface Game {
   };
 }
 
-// --- Animated Components ---
-
-const AnimatedSection = ({ children, index, visible }: { children: ReactNode, index: number, visible: boolean }) => {
-  const animatedValue = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (visible) {
-      Animated.timing(animatedValue, {
-        toValue: 1,
-        duration: Standard,
-        delay: 40 + (index * 40),
-        easing: AppleEasing,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      animatedValue.setValue(0);
-    }
-  }, [visible]);
-
-  return (
-    <Animated.View style={{
-      opacity: animatedValue,
-      transform: [{ translateY: animatedValue.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }]
-    }}>
-      {children}
-    </Animated.View>
-  );
-};
+// --- Games Screen ---
 
 export default function GamesScreen() {
   const router = useRouter();
@@ -168,7 +122,41 @@ export default function GamesScreen() {
     }
   }, [isLoading, data, selectedDate]);
 
-  const games: Game[] = data?.games || [];
+  const sortedGames = useMemo(() => {
+    const rawGames: Game[] = data?.games || [];
+    
+    return [...rawGames].sort((a, b) => {
+      const getPriority = (g: Game) => {
+        if (g.isMarquee) return 100;
+        if (g.isOvertime) return 90;
+        if (g.isClosest) return 80;
+        
+        // Live games
+        if (g.gameStatus === 2) return 70;
+        
+        // Scheduled games
+        if (g.gameStatus === 1) return 60;
+        
+        // Postponed
+        if (g.gameStatus === 6) return 50;
+        
+        // Finished
+        if (g.gameStatus === 3) return 40;
+        
+        return 0;
+      };
+
+      const priorityA = getPriority(a);
+      const priorityB = getPriority(b);
+
+      if (priorityA !== priorityB) {
+        return priorityB - priorityA;
+      }
+
+      // If priorities are equal, sort by time if possible
+      return a.gameId.localeCompare(b.gameId);
+    });
+  }, [data]);
 
   const formatDateLabel = (date: Date, index: number): string => {
     const today = getChineseDate();
@@ -209,12 +197,20 @@ export default function GamesScreen() {
     return (
       <AnimatedSection index={index} visible={isDataLoaded}>
         <TouchableOpacity
-          style={styles.gameCard}
+          style={[
+            styles.gameCard, 
+            item.isMarquee && styles.marqueeCard
+          ]}
           activeOpacity={0.6}
           onPress={() => {
             router.push(`/game/${item.gameId}`);
           }}
         >
+          {item.isMarquee && (
+            <View style={styles.marqueeBadge}>
+              <Text style={styles.marqueeBadgeText}>焦点战</Text>
+            </View>
+          )}
           <View style={styles.gameContent}>
             {/* Away Team */}
             <View style={styles.teamSide}>
@@ -257,11 +253,25 @@ export default function GamesScreen() {
               )}
               
               {!isScheduled && (
-                <View style={[styles.statusBadge, isLive && styles.liveBadge]}>
-                  <View style={isLive && styles.liveDot} />
-                  <Text style={[styles.statusText, isLive && styles.liveText]}>
-                    {getStatusText()}
+                <View style={[
+                  styles.statusBadge, 
+                  isLive && styles.liveBadge,
+                  item.isOvertime && styles.otBadge
+                ]}>
+                  {isLive && <View style={styles.liveDot} />}
+                  <Text style={[
+                    styles.statusText, 
+                    isLive && styles.liveText,
+                    item.isOvertime && styles.otText
+                  ]}>
+                    {item.isOvertime ? '加时赛' : getStatusText()}
                   </Text>
+                </View>
+              )}
+
+              {item.isClosest && !isFinished && (
+                <View style={styles.closestBadge}>
+                  <Text style={styles.closestText}>焦灼</Text>
                 </View>
               )}
             </View>
@@ -334,7 +344,7 @@ export default function GamesScreen() {
         </View>
       ) : (
         <FlatList
-          data={games}
+          data={sortedGames}
           renderItem={renderGame}
           keyExtractor={(item) => item.gameId}
           contentContainerStyle={styles.list}
@@ -428,6 +438,51 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  marqueeCard: {
+    borderColor: COLORS.accent + '40',
+    backgroundColor: COLORS.card,
+    shadowColor: COLORS.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  marqueeBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 20,
+    backgroundColor: COLORS.accent,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderBottomLeftRadius: 6,
+    borderBottomRightRadius: 6,
+  },
+  marqueeBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  otBadge: {
+    backgroundColor: '#ff950020',
+  },
+  otText: {
+    color: '#ff9500',
+  },
+  closestBadge: {
+    marginTop: 4,
+    backgroundColor: '#ff3b3015',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  closestText: {
+    color: '#ff3b30',
+    fontSize: 9,
+    fontWeight: '800',
   },
   gameContent: {
     flexDirection: 'row',

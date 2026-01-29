@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
-import { useState, useRef, useEffect, ReactNode } from 'react';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -11,8 +11,7 @@ import {
   ActivityIndicator, 
   Dimensions, 
   Animated, 
-  Easing, 
-  Platform
+  Platform 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,56 +20,17 @@ import {
   fetchTeamLeaders,
   fetchTeamRecentGames,
   fetchTeamSchedule
-} from '../services/api';
-import { getTeamImage } from '../utils/teamImages';
+} from '../../src/services/api';
+import { getTeamImage } from '../../src/utils/teamImages';
+import { COLORS, MOTION } from '../../src/constants/theme';
+import { AnimatedSection } from '../../src/components/AnimatedSection';
 
 const { width } = Dimensions.get('window');
-
-// --- Motion Tokens ---
-const Fast = 120;
-const Standard = 180;
-const AppleEasing = Easing.bezier(0.2, 0, 0, 1);
 
 const HEADER_EXPANDED_HEIGHT = 160;
 const HEADER_COLLAPSED_HEIGHT = 100;
 
-// --- Color Tokens ---
-const COLORS = {
-  bg: '#0E0E11',
-  header: '#121216',
-  card: '#16161A',
-  textMain: '#FFFFFF',
-  textSecondary: '#71767A',
-  accent: '#1d9bf0',
-  divider: '#1c1c1e',
-};
-
-// --- Animated Components ---
-
-const AnimatedSection = ({ children, index, visible }: { children: ReactNode, index: number, visible: boolean }) => {
-  const animatedValue = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (visible) {
-      Animated.timing(animatedValue, {
-        toValue: 1,
-        duration: Standard,
-        delay: index * 40,
-        easing: AppleEasing,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [visible, index, animatedValue]);
-
-  return (
-    <Animated.View style={{
-      opacity: animatedValue,
-      transform: [{ translateY: animatedValue.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }]
-    }}>
-      {children}
-    </Animated.View>
-  );
-};
+// --- Types ---
 
 // --- Types ---
 
@@ -151,10 +111,20 @@ export default function TeamDetailScreen() {
     enabled: !!overview,
   });
 
-  const { data: schedule } = useQuery({
+  const { 
+    data: scheduleData, 
+    fetchNextPage, 
+    hasNextPage, 
+    isFetchingNextPage 
+  } = useInfiniteQuery({
     queryKey: ['teamSchedule', teamAbbr],
-    queryFn: () => fetchTeamSchedule(teamAbbr),
+    queryFn: ({ pageParam = 1 }) => fetchTeamSchedule(teamAbbr, { page: pageParam }),
+    getNextPageParam: (lastPage: any) => {
+      const { pagination } = lastPage.meta;
+      return pagination.page < pagination.pages ? pagination.page + 1 : undefined;
+    },
     enabled: !!overview,
+    initialPageParam: 1,
   });
 
   const { data: recentGames } = useQuery({
@@ -168,8 +138,8 @@ export default function TeamDetailScreen() {
       setIsDataLoaded(true);
       Animated.timing(headerOpacity, {
         toValue: 1,
-        duration: Fast,
-        easing: AppleEasing,
+        duration: MOTION.Fast,
+        easing: MOTION.AppleEasing,
         useNativeDriver: false,
       }).start();
     }
@@ -182,14 +152,14 @@ export default function TeamDetailScreen() {
     Animated.parallel([
       Animated.timing(tabIndicatorPos, {
         toValue: targetPos,
-        duration: Standard,
-        easing: AppleEasing,
+        duration: MOTION.Standard,
+        easing: MOTION.AppleEasing,
         useNativeDriver: false,
       }),
       Animated.timing(tabContentAnim, {
         toValue: 1,
-        duration: Fast,
-        easing: AppleEasing,
+        duration: MOTION.Fast,
+        easing: MOTION.AppleEasing,
         useNativeDriver: true,
       })
     ]).start(() => {
@@ -483,14 +453,14 @@ export default function TeamDetailScreen() {
   );
 
   const renderScheduleTab = () => {
-    if (!schedule) return <ActivityIndicator size="small" color={COLORS.textSecondary} style={{marginTop: 40}} />;
+    if (!scheduleData) return <ActivityIndicator size="small" color={COLORS.textSecondary} style={{marginTop: 40}} />;
     
-    // Backend returns raw ESPN structure with .events
-    const games = schedule.events || [];
+    // Combine all pages of events
+    const allEvents = scheduleData.pages.flatMap(page => page.data.events || []);
 
     return (
       <View style={styles.tabContent}>
-        {games.map((event: any, idx: number) => {
+        {allEvents.map((event: any, idx: number) => {
           const competition = event.competitions?.[0];
           const status = competition?.status?.type;
           const homeTeam = competition?.competitors?.find((t: any) => t.homeAway === 'home');
@@ -506,15 +476,16 @@ export default function TeamDetailScreen() {
             const otherTeamCompetitor = competition?.competitors?.find((t: any) => t.team.id !== teamId);
             
             if (currentTeamCompetitor && otherTeamCompetitor) {
-              const won = parseInt(currentTeamCompetitor.score?.displayValue || currentTeamCompetitor.score || '0') > 
-                          parseInt(otherTeamCompetitor.score?.displayValue || otherTeamCompetitor.score || '0');
+              const currentScore = parseInt(String(currentTeamCompetitor.score?.displayValue || currentTeamCompetitor.score || '0'), 10);
+              const otherScore = parseInt(String(otherTeamCompetitor.score?.displayValue || otherTeamCompetitor.score || '0'), 10);
+              const won = currentScore > otherScore;
               resultText = won ? 'W' : 'L';
               resultColor = won ? '#10b981' : '#ef4444';
             }
           }
 
           return (
-            <AnimatedSection key={event.id || idx} index={idx} visible={isDataLoaded}>
+            <AnimatedSection key={event.id || idx} index={idx % 20} visible={isDataLoaded}>
               <TouchableOpacity 
                 style={styles.scheduleCard}
                 onPress={() => {
@@ -531,14 +502,13 @@ export default function TeamDetailScreen() {
                     <Image source={getTeamImage(awayTeam?.team?.abbreviation)} style={styles.scheduleLogo} />
                     <Text style={styles.seriesVs}>@</Text>
                     <Image source={getTeamImage(homeTeam?.team?.abbreviation)} style={styles.scheduleLogo} />
-                    {/* <Text style={styles.scheduleOpponent}>{awayTeam?.team?.abbreviation} vs {homeTeam?.team?.abbreviation}</Text> */}
                   </View>
                 </View>
 
                 <View style={styles.scheduleResult}>
                   {status?.completed ? (
                     <Text style={[styles.scheduleScore, { color: resultColor }]}>
-                      {resultText} {awayTeam?.score?.displayValue || awayTeam?.score}-{homeTeam?.score?.displayValue || homeTeam?.score}
+                      {resultText} {awayTeam?.score}-{homeTeam?.score}
                     </Text>
                   ) : (
                     <Text style={styles.scheduleTime}>{event.date ? new Date(event.date).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '-'}</Text>
@@ -548,6 +518,21 @@ export default function TeamDetailScreen() {
             </AnimatedSection>
           );
         })}
+
+        {/* Load More Button */}
+        {hasNextPage && (
+          <TouchableOpacity 
+            style={styles.loadMoreButton} 
+            onPress={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+          >
+            {isFetchingNextPage ? (
+              <ActivityIndicator size="small" color={COLORS.accent} />
+            ) : (
+              <Text style={styles.loadMoreText}>加载更多</Text>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
     );
   };
@@ -1096,5 +1081,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     marginTop: 2,
+  },
+  loadMoreButton: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  loadMoreText: {
+    color: COLORS.accent,
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

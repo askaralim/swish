@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { useState, useRef, useEffect, ReactNode } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -11,7 +11,6 @@ import {
   ActivityIndicator,
   Dimensions,
   Animated,
-  Easing,
   Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,59 +18,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { 
   fetchGameDetail, 
   fetchGameSummary, 
-  fetchTeamStats,
-} from '../services/api';
-import { getTeamImage } from '../utils/teamImages';
+  fetchTeamOverview,
+} from '../../src/services/api';
+import { getTeamImage } from '../../src/utils/teamImages';
 import { LinearGradient } from 'expo-linear-gradient';
+import { COLORS, MOTION } from '../../src/constants/theme';
+import { AnimatedSection } from '../../src/components/AnimatedSection';
 
 const { width } = Dimensions.get('window');
 
-// --- Motion Tokens ---
-const Fast = 120;
-const Standard = 180;
-const Emphasis = 240;
-const AppleEasing = Easing.bezier(0.2, 0, 0, 1);
-
 const HEADER_EXPANDED_HEIGHT = 180;
 const HEADER_COLLAPSED_HEIGHT = 100;
-
-// --- Color Tokens ---
-const COLORS = {
-  bg: '#0E0E11',
-  header: '#121216',
-  card: '#16161A',
-  textMain: '#FFFFFF',
-  textSecondary: '#71767A',
-  accent: '#1d9bf0',
-  divider: '#1c1c1e',
-};
-
-// --- Animated Components ---
-
-const AnimatedSection = ({ children, index, visible }: { children: ReactNode, index: number, visible: boolean }) => {
-  const animatedValue = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (visible) {
-      Animated.timing(animatedValue, {
-        toValue: 1,
-        duration: Standard,
-        delay: 120 + (index * 40),
-        easing: AppleEasing,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [visible, index, animatedValue]);
-
-  return (
-    <Animated.View style={{
-      opacity: animatedValue,
-      transform: [{ translateY: animatedValue.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }]
-    }}>
-      {children}
-    </Animated.View>
-  );
-};
 
 const AnimatedStatBar = ({ awayPct, homePct, visible }: { awayPct: number, homePct: number, visible: boolean }) => {
   const widthAnim = useRef(new Animated.Value(0)).current;
@@ -80,9 +37,9 @@ const AnimatedStatBar = ({ awayPct, homePct, visible }: { awayPct: number, homeP
     if (visible) {
       Animated.timing(widthAnim, {
         toValue: 1,
-        duration: Emphasis,
+        duration: MOTION.Emphasis,
         delay: 80,
-        easing: AppleEasing,
+        easing: MOTION.AppleEasing,
         useNativeDriver: false,
       }).start();
     }
@@ -185,7 +142,7 @@ interface GameDetail {
   homeTeam: Team;
   awayTeam: Team;
   seasonSeries: {
-    games: Array<any>;
+    games: any[];
   };
   boxscore?: {
     teamStatistics?: {
@@ -221,16 +178,16 @@ export default function GameDetailScreen() {
     enabled: !!game && (game.gameStatus === 3 || game.gameStatus === 1), // Enable for scheduled too
   });
 
-  const { data: teamStatsAway } = useQuery({
-    queryKey: ['teamStats', game?.awayTeam?.abbreviation],
+  const { data: teamStatsAway, isLoading: isLoadingAway, isError: isErrorAway } = useQuery({
+    queryKey: ['teamOverview', game?.awayTeam?.abbreviation],
     queryFn: () => fetchTeamOverview(game?.awayTeam?.abbreviation || ''),
-    enabled: !!game?.awayTeam && game?.gameStatus === 1 && activeTab === 'away',
+    enabled: !!game?.awayTeam && (Number(game?.gameStatus) === 1 || Number(game?.gameStatus) === 6),
   });
 
-  const { data: teamStatsHome } = useQuery({
-    queryKey: ['teamStats', game?.homeTeam?.abbreviation],
+  const { data: teamStatsHome, isLoading: isLoadingHome, isError: isErrorHome } = useQuery({
+    queryKey: ['teamOverview', game?.homeTeam?.abbreviation],
     queryFn: () => fetchTeamOverview(game?.homeTeam?.abbreviation || ''),
-    enabled: !!game?.homeTeam && game?.gameStatus === 1 && activeTab === 'home',
+    enabled: !!game?.homeTeam && (Number(game?.gameStatus) === 1 || Number(game?.gameStatus) === 6),
   });
 
   useEffect(() => {
@@ -238,8 +195,8 @@ export default function GameDetailScreen() {
       setIsDataLoaded(true);
       Animated.timing(headerOpacity, {
         toValue: 1,
-        duration: Fast,
-        easing: AppleEasing,
+        duration: MOTION.Fast,
+        easing: MOTION.AppleEasing,
         useNativeDriver: false,
       }).start();
     }
@@ -253,14 +210,14 @@ export default function GameDetailScreen() {
     Animated.parallel([
       Animated.timing(tabIndicatorPos, {
         toValue: targetPos,
-        duration: Standard,
-        easing: AppleEasing,
+        duration: MOTION.Standard,
+        easing: MOTION.AppleEasing,
         useNativeDriver: false,
       }),
       Animated.timing(tabContentAnim, {
         toValue: 1,
-        duration: Fast,
-        easing: AppleEasing,
+        duration: MOTION.Fast,
+        easing: MOTION.AppleEasing,
         useNativeDriver: true,
       })
     ]).start(() => {
@@ -317,8 +274,8 @@ export default function GameDetailScreen() {
   if (detailError || !game) return null;
 
   const { homeTeam, awayTeam } = game;
-  const isScheduled = game.gameStatus === 1;
-  const isFinished = game.gameStatus === 3;
+  const isScheduled = Number(game.gameStatus) === 1 || Number(game.gameStatus) === 6;
+  const isFinished = Number(game.gameStatus) === 3;
 
   // --- Render Helpers ---
 
@@ -653,7 +610,7 @@ export default function GameDetailScreen() {
             <Text style={styles.sectionHeader}>主宰比赛</Text>
             <TouchableOpacity 
               style={styles.mvpCompactCard}
-              onPress={() => game.boxscore.gameMVP.athleteId && router.push(`/player/${game.boxscore.gameMVP.athleteId}`)}
+              onPress={() => game.boxscore?.gameMVP?.athleteId && router.push(`/player/${game.boxscore.gameMVP.athleteId}`)}
             >
               <Image source={{ uri: game.boxscore.gameMVP.headshot }} style={styles.mvpHeadshot} />
               <View style={styles.mvpInfo}>
@@ -676,12 +633,32 @@ export default function GameDetailScreen() {
     </View>
   );
 
-  const TeamPlayerStatsView = ({ team, boxscoreTeam, seasonStats }: { team: Team, boxscoreTeam?: TeamStats, seasonStats?: any }) => {
+  const TeamPlayerStatsView = ({ 
+    team, 
+    boxscoreTeam, 
+    seasonStats, 
+    isLoading, 
+    isError 
+  }: { 
+    team: Team, 
+    boxscoreTeam?: TeamStats, 
+    seasonStats?: any,
+    isLoading?: boolean,
+    isError?: boolean
+  }) => {
     if (isScheduled) {
-      if (!seasonStats?.players) {
+      if (isLoading) {
         return (
-          <View style={styles.loadingContainer}>
+          <View style={[styles.loadingContainer, { height: 400 }]}>
             <ActivityIndicator size="small" color={COLORS.textSecondary} />
+          </View>
+        );
+      }
+
+      if (isError || !seasonStats?.players) {
+        return (
+          <View style={[styles.emptyContainer, { height: 400 }]}>
+            <Text style={styles.emptyText}>暂时无法获取球队赛季数据</Text>
           </View>
         );
       }
@@ -1069,8 +1046,8 @@ export default function GameDetailScreen() {
           transform: [{ translateX: tabContentAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 16] }) }]
         }}>
           {activeTab === 'game' ? renderGameTab() : 
-           activeTab === 'away' ? <TeamPlayerStatsView team={awayTeam} boxscoreTeam={game.boxscore?.teams?.find(t => t.homeAway === 'away')} seasonStats={teamStatsAway} /> :
-           <TeamPlayerStatsView team={homeTeam} boxscoreTeam={game.boxscore?.teams?.find(t => t.homeAway === 'home')} seasonStats={teamStatsHome} />}
+           activeTab === 'away' ? <TeamPlayerStatsView team={awayTeam} boxscoreTeam={game.boxscore?.teams?.find(t => t.homeAway === 'away')} seasonStats={teamStatsAway} isLoading={isLoadingAway} isError={isErrorAway} /> :
+           <TeamPlayerStatsView team={homeTeam} boxscoreTeam={game.boxscore?.teams?.find(t => t.homeAway === 'home')} seasonStats={teamStatsHome} isLoading={isLoadingHome} isError={isErrorHome} />}
         </Animated.View>
         <View style={{ height: insets.bottom + 100 }} />
       </Animated.ScrollView>

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useState, useRef, useEffect, ReactNode } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -9,33 +9,16 @@ import {
   ActivityIndicator, 
   RefreshControl, 
   TouchableOpacity, 
-  Image,
-  Animated,
-  Easing,
+  Image, 
+  Animated, 
   Dimensions
 } from 'react-native';
-import { fetchStandings } from './services/api';
-import { getTeamImage } from './utils/teamImages';
+import { fetchStandings } from '../src/services/api';
+import { getTeamImage } from '../src/utils/teamImages';
+import { COLORS, MOTION } from '../src/constants/theme';
+import { AnimatedSection } from '../src/components/AnimatedSection';
 
 const { width } = Dimensions.get('window');
-
-// --- Motion Tokens ---
-const Fast = 120;
-const Standard = 180;
-const AppleEasing = Easing.bezier(0.2, 0, 0, 1);
-
-// --- Color Tokens ---
-const COLORS = {
-  bg: '#0E0E11',
-  header: '#121216',
-  card: '#16161A',
-  textMain: '#FFFFFF',
-  textSecondary: '#71767A',
-  accent: '#1d9bf0',
-  divider: '#1c1c1e',
-  win: '#10b981',
-  loss: '#ef4444',
-};
 
 interface Team {
   id: string;
@@ -71,33 +54,6 @@ interface StandingsData {
   };
 }
 
-const AnimatedSection = ({ children, index, visible }: { children: ReactNode, index: number, visible: boolean }) => {
-  const animatedValue = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (visible) {
-      Animated.timing(animatedValue, {
-        toValue: 1,
-        duration: Standard,
-        delay: index * 30,
-        easing: AppleEasing,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      animatedValue.setValue(0);
-    }
-  }, [visible]);
-
-  return (
-    <Animated.View style={{
-      opacity: animatedValue,
-      transform: [{ translateY: animatedValue.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }]
-    }}>
-      {children}
-    </Animated.View>
-  );
-};
-
 export default function TeamsScreen() {
   const router = useRouter();
   const [selectedConference, setSelectedConference] = useState<'East' | 'West'>('East');
@@ -122,8 +78,8 @@ export default function TeamsScreen() {
     
     Animated.timing(tabIndicatorPos, {
       toValue: conf === 'East' ? 0 : 1,
-      duration: Fast,
-      easing: AppleEasing,
+      duration: MOTION.Fast,
+      easing: MOTION.AppleEasing,
       useNativeDriver: false,
     }).start(() => {
       setSelectedConference(conf);
@@ -207,7 +163,7 @@ export default function TeamsScreen() {
           {error instanceof Error ? error.message : '加载失败'}
         </Text>
         <TouchableOpacity onPress={() => refetch()} style={styles.retryButton}>
-          <Text style={styles.retryText}>重试</Text>
+          <Text style={styles.retryButtonText}>重试</Text>
         </TouchableOpacity>
       </View>
     );
@@ -449,7 +405,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.accent,
     borderRadius: 12,
   },
-  retryText: {
+  retryButtonText: {
     color: COLORS.textMain,
     fontSize: 16,
     fontWeight: '600',
