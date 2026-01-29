@@ -18,6 +18,7 @@ import { fetchNews } from '../src/services/api';
 import type { NewsResponse, Tweet } from '../src/types/news';
 import { COLORS, MOTION } from '../src/constants/theme';
 import { AnimatedSection } from '../src/components/AnimatedSection';
+import { Skeleton } from '../src/components/Skeleton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function NewsScreen() {
@@ -117,9 +118,24 @@ export default function NewsScreen() {
 
   if (isLoading && !data) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="small" color={COLORS.textSecondary} />
-        <Text style={styles.loadingText}>加载新闻中...</Text>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <Skeleton width={120} height={32} />
+          <Skeleton width={200} height={16} style={{ marginTop: 8 }} />
+        </View>
+        <View style={styles.scrollContent}>
+          {[1, 2, 3].map((i) => (
+            <View key={i} style={styles.skeletonTweetCard}>
+              <View style={styles.skeletonTweetRow}>
+                <Skeleton width={40} height={40} borderRadius={20} />
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Skeleton width={150} height={14} />
+                  <Skeleton width="100%" height={60} style={{ marginTop: 12 }} />
+                </View>
+              </View>
+            </View>
+          ))}
+        </View>
       </View>
     );
   }
@@ -353,5 +369,14 @@ const styles = StyleSheet.create({
   footerLoader: {
     paddingVertical: 20,
     alignItems: 'center',
+  },
+  skeletonTweetCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+  },
+  skeletonTweetRow: {
+    flexDirection: 'row',
   },
 });

@@ -14,8 +14,8 @@ export const COLORS = {
 };
 
 export const MOTION = {
-  Fast: 120,
-  Standard: 180,
-  Emphasis: 240,
+  Fast: 180,
+  Standard: 220,
+  Emphasis: 300,
   AppleEasing: Easing.bezier(0.2, 0, 0, 1),
 };

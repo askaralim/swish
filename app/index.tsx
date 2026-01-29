@@ -14,10 +14,12 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import { fetchGames, formatDateForAPI, getChineseDate } from '../src/services/api';
 import { getTeamImage } from '../src/utils/teamImages';
 import { COLORS } from '../src/constants/theme';
 import { AnimatedSection } from '../src/components/AnimatedSection';
+import { Skeleton } from '../src/components/Skeleton';
 
 interface Game {
   gameId: string;
@@ -93,7 +95,6 @@ export default function GamesScreen() {
       date.setDate(date.getDate() + i);
       dates.push(date);
     }
-    console.log(dates);
     return dates;
   }, []);
 
@@ -311,7 +312,10 @@ export default function GamesScreen() {
               <TouchableOpacity
                 key={index}
                 style={[styles.dateButton, isSelected && styles.dateButtonActive]}
-                onPress={() => setSelectedDate(date)}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSelectedDate(date);
+                }}
                 activeOpacity={0.7}
               >
                 <Text style={[
@@ -330,8 +334,23 @@ export default function GamesScreen() {
       </View>
 
       {isLoading && !isRefetching ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="small" color={COLORS.textSecondary} />
+        <View style={styles.list}>
+          {[1, 2, 3, 4].map((i) => (
+            <View key={i} style={styles.skeletonCard}>
+              <View style={styles.skeletonSide}>
+                <Skeleton width={44} height={44} borderRadius={22} />
+                <Skeleton width={60} height={12} style={{ marginTop: 8 }} />
+              </View>
+              <View style={styles.skeletonMiddle}>
+                <Skeleton width={80} height={24} borderRadius={12} />
+                <Skeleton width={40} height={10} style={{ marginTop: 8 }} />
+              </View>
+              <View style={styles.skeletonSide}>
+                <Skeleton width={44} height={44} borderRadius={22} />
+                <Skeleton width={60} height={12} style={{ marginTop: 8 }} />
+              </View>
+            </View>
+          ))}
         </View>
       ) : error ? (
         <View style={styles.center}>
@@ -530,6 +549,23 @@ const styles = StyleSheet.create({
   },
   dimmedText: {
     color: COLORS.textSecondary,
+  },
+  skeletonCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  skeletonSide: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  skeletonMiddle: {
+    alignItems: 'center',
+    flex: 1.2,
   },
   boldText: {
     fontWeight: '800',

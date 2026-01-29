@@ -13,10 +13,12 @@ import {
   Animated, 
   Dimensions
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { fetchStandings } from '../src/services/api';
 import { getTeamImage } from '../src/utils/teamImages';
 import { COLORS, MOTION } from '../src/constants/theme';
 import { AnimatedSection } from '../src/components/AnimatedSection';
+import { Skeleton } from '../src/components/Skeleton';
 
 const { width } = Dimensions.get('window');
 
@@ -76,6 +78,7 @@ export default function TeamsScreen() {
   const handleConferenceChange = (conf: 'East' | 'West') => {
     if (conf === selectedConference) return;
     
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Animated.timing(tabIndicatorPos, {
       toValue: conf === 'East' ? 0 : 1,
       duration: MOTION.Fast,
@@ -150,8 +153,22 @@ export default function TeamsScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="small" color={COLORS.textSecondary} />
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Skeleton width={120} height={32} />
+          <Skeleton width={80} height={16} style={{ marginTop: 8 }} />
+        </View>
+        <View style={styles.scrollContent}>
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <View key={i} style={styles.skeletonRow}>
+              <Skeleton width={24} height={24} borderRadius={4} />
+              <Skeleton width={32} height={32} borderRadius={16} style={{ marginLeft: 12 }} />
+              <Skeleton width={100} height={16} style={{ marginLeft: 12 }} />
+              <View style={{ flex: 1 }} />
+              <Skeleton width={40} height={16} />
+            </View>
+          ))}
+        </View>
       </View>
     );
   }
@@ -413,5 +430,12 @@ const styles = StyleSheet.create({
   emptyText: {
     color: COLORS.textSecondary,
     fontSize: 15,
+  },
+  skeletonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 0.5,
+    borderBottomColor: COLORS.divider,
   },
 });

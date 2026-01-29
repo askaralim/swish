@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import { 
   fetchGameDetail, 
   fetchGameSummary, 
@@ -204,6 +205,7 @@ export default function GameDetailScreen() {
 
   const handleTabChange = (tab: 'game' | 'away' | 'home') => {
     if (tab === activeTab) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     
     const targetPos = tab === 'game' ? 0 : tab === 'away' ? 1 : 2;
 

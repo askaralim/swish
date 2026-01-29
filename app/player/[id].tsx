@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import { 
   fetchPlayerDetails, 
   fetchPlayerBio, 
@@ -100,6 +101,7 @@ export default function PlayerDetailScreen() {
 
   const handleTabChange = (tab: 'overview' | 'stats' | 'log') => {
     if (tab === activeTab) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const targetPos = tab === 'overview' ? 0 : tab === 'stats' ? 1 : 2;
 
     Animated.parallel([
@@ -509,8 +511,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 60,
     right: 60,
-    top: 0,
-    bottom: 0,
+    height: 44, // Match navBar height
     justifyContent: 'center',
   },
   compactPhoto: {
@@ -578,13 +579,14 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   tabsContainer: {
-    height: 40,
+    height: 48,
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
     borderBottomWidth: 0.5,
     borderBottomColor: COLORS.divider,
+    backgroundColor: COLORS.header,
   },
   tabs: {
     flexDirection: 'row',

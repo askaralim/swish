@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { COLORS } from '../src/constants/theme';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -14,15 +15,15 @@ const queryClient = new QueryClient({
 
 export default function RootLayout() {
   const insets = useSafeAreaInsets();
-  console.log('RootLayout rendered');
   
   return (
     <QueryClientProvider client={queryClient}>
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarActiveTintColor: '#1d9bf0',
+          tabBarActiveTintColor: COLORS.accent,
           tabBarInactiveTintColor: '#71767a',
+          sceneContainerStyle: { backgroundColor: COLORS.bg },
           tabBarStyle: {
             backgroundColor: '#000000',
             borderTopColor: '#2f3336',

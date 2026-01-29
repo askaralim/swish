@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, MOTION } from '../src/constants/theme';
 import { AnimatedSection } from '../src/components/AnimatedSection';
+import { Skeleton } from '../src/components/Skeleton';
 
 const { width } = Dimensions.get('window');
 
@@ -130,9 +131,29 @@ export default function PlayersStatsScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="small" color={COLORS.textSecondary} />
-        <Text style={styles.loadingText}>加载中...</Text>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.pageHeader}>
+          <Skeleton width={150} height={32} />
+          <Skeleton width={100} height={16} style={{ marginTop: 8 }} />
+        </View>
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          {[1, 2].map((i) => (
+            <View key={i} style={styles.skeletonSection}>
+              <Skeleton width={width - 32} height={100} borderRadius={16} />
+              <View style={{ marginTop: 12 }}>
+                {[1, 2, 3].map((j) => (
+                  <View key={j} style={styles.skeletonPlayerRow}>
+                    <Skeleton width={24} height={24} borderRadius={12} />
+                    <Skeleton width={32} height={32} borderRadius={16} style={{ marginLeft: 12 }} />
+                    <Skeleton width={120} height={16} style={{ marginLeft: 12 }} />
+                    <View style={{ flex: 1 }} />
+                    <Skeleton width={40} height={16} />
+                  </View>
+                ))}
+              </View>
+            </View>
+          ))}
+        </ScrollView>
       </View>
     );
   }
@@ -342,5 +363,16 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     marginTop: 2,
+  },
+  skeletonSection: {
+    paddingHorizontal: 16,
+    marginBottom: 32,
+  },
+  skeletonPlayerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: COLORS.divider,
   },
 });

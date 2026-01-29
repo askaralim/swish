@@ -47,7 +47,7 @@ export default function PlayerGamePerformanceScreen() {
           teamLogo: team.logo,
           teamName: team.name,
           teamNameZhCN: team.nameZhCN,
-          gameScore: `${game.awayTeam.nameZhCN} ${game.awayTeam.score} - ${game.homeTeam.score} ${game.homeTeam.nameZhCN}`
+          gameScore: `${game.awayTeam.abbreviation} ${game.awayTeam.score} - ${game.homeTeam.score} ${game.homeTeam.abbreviation}`
         };
       }
     }
