@@ -136,15 +136,57 @@ export async function fetchGameSummary(gameId: string) {
 }
 
 /**
- * Fetch team season stats
+ * Fetch team overview
  */
-export async function fetchTeamStats(teamAbbreviation: string) {
+export async function fetchTeamOverview(teamAbbreviation: string) {
   return apiGet(`/api/v1/nba/teams/${teamAbbreviation}`);
+}
+
+/**
+ * Fetch team leaders
+ */
+export async function fetchTeamLeaders(teamAbbreviation: string) {
+  return apiGet(`/api/v1/nba/teams/${teamAbbreviation}/leaders`);
 }
 
 /**
  * Fetch team recent games
  */
-export async function fetchTeamRecentGames(teamAbbreviation: string, seasonType: number = 2) {
-  return apiGet(`/api/v1/nba/teams/${teamAbbreviation}/recent-games`, { seasontype: seasonType });
+export async function fetchTeamRecentGames(teamAbbreviation: string, params: { seasontype?: number, page?: number, limit?: number } = {}) {
+  const { seasontype = 2, page = 1, limit = 20 } = params;
+  return apiGet(`/api/v1/nba/teams/${teamAbbreviation}/recent-games`, { seasontype, page, limit });
+}
+
+/**
+ * Fetch team schedule
+ */
+export async function fetchTeamSchedule(teamAbbreviation: string, params: { seasontype?: number, page?: number, limit?: number } = {}) {
+  const { seasontype = 2, page = 1, limit = 20 } = params;
+  return apiGet(`/api/v1/nba/teams/${teamAbbreviation}/schedule`, { seasontype, page, limit });
+}
+
+// --- Player Endpoints ---
+
+export async function fetchPlayerDetails(playerId: string) {
+  return apiGet(`/api/v1/nba/players/${playerId}`);
+}
+
+export async function fetchPlayerBio(playerId: string) {
+  return apiGet(`/api/v1/nba/players/${playerId}/bio`);
+}
+
+export async function fetchPlayerCurrentStats(playerId: string) {
+  return apiGet(`/api/v1/nba/players/${playerId}/stats/current`);
+}
+
+export async function fetchPlayerRegularStats(playerId: string) {
+  return apiGet(`/api/v1/nba/players/${playerId}/stats`);
+}
+
+export async function fetchPlayerAdvancedStats(playerId: string) {
+  return apiGet(`/api/v1/nba/players/${playerId}/stats/advanced`);
+}
+
+export async function fetchPlayerGameLog(playerId: string) {
+  return apiGet(`/api/v1/nba/players/${playerId}/gamelog`);
 }

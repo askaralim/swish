@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
 import { useState, useRef, useEffect, ReactNode } from 'react';
 import { 
   View, 
@@ -98,6 +99,7 @@ const AnimatedSection = ({ children, index, visible }: { children: ReactNode, in
 };
 
 export default function TeamsScreen() {
+  const router = useRouter();
   const [selectedConference, setSelectedConference] = useState<'East' | 'West'>('East');
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const tabIndicatorPos = useRef(new Animated.Value(0)).current;
@@ -144,6 +146,7 @@ export default function TeamsScreen() {
         <TouchableOpacity
           style={styles.teamCard}
           activeOpacity={0.7}
+          onPress={() => router.push(`/team/${team.abbreviation}`)}
         >
           <View style={styles.rankSide}>
             <View style={[styles.rankBadge, isPlayoffTeam && styles.playoffBadge]}>

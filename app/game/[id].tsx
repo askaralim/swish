@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { 
   fetchGameDetail, 
   fetchGameSummary, 
+  fetchTeamStats,
 } from '../services/api';
 import { getTeamImage } from '../utils/teamImages';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -60,7 +61,7 @@ const AnimatedSection = ({ children, index, visible }: { children: ReactNode, in
         useNativeDriver: true,
       }).start();
     }
-  }, [visible]);
+  }, [visible, index, animatedValue]);
 
   return (
     <Animated.View style={{
@@ -85,7 +86,7 @@ const AnimatedStatBar = ({ awayPct, homePct, visible }: { awayPct: number, homeP
         useNativeDriver: false,
       }).start();
     }
-  }, [visible]);
+  }, [visible, widthAnim]);
 
   return (
     <View style={styles.statBarContainer}>
@@ -217,7 +218,19 @@ export default function GameDetailScreen() {
   const { data: summaryData } = useQuery({
     queryKey: ['gameSummary', id],
     queryFn: () => fetchGameSummary(id),
-    enabled: !!game && game.gameStatus === 3,
+    enabled: !!game && (game.gameStatus === 3 || game.gameStatus === 1), // Enable for scheduled too
+  });
+
+  const { data: teamStatsAway } = useQuery({
+    queryKey: ['teamStats', game?.awayTeam?.abbreviation],
+    queryFn: () => fetchTeamOverview(game?.awayTeam?.abbreviation || ''),
+    enabled: !!game?.awayTeam && game?.gameStatus === 1 && activeTab === 'away',
+  });
+
+  const { data: teamStatsHome } = useQuery({
+    queryKey: ['teamStats', game?.homeTeam?.abbreviation],
+    queryFn: () => fetchTeamOverview(game?.homeTeam?.abbreviation || ''),
+    enabled: !!game?.homeTeam && game?.gameStatus === 1 && activeTab === 'home',
   });
 
   useEffect(() => {
@@ -230,7 +243,7 @@ export default function GameDetailScreen() {
         useNativeDriver: false,
       }).start();
     }
-  }, [isLoadingDetail, game]);
+  }, [isLoadingDetail, game, headerOpacity]);
 
   const handleTabChange = (tab: 'game' | 'away' | 'home') => {
     if (tab === activeTab) return;
@@ -342,23 +355,29 @@ export default function GameDetailScreen() {
 
     const renderPerformerRow = (label: string, awayPerf: any, homePerf: any, statKey: string) => (
       <View style={styles.perfRow} key={label}>
-        <View style={styles.perfPlayerSide}>
+        <TouchableOpacity 
+          style={styles.perfPlayerSide}
+          onPress={() => awayPerf.athleteId && router.push(`/player/${awayPerf.athleteId}`)}
+        >
           <View style={styles.perfPlayerInfo}>
             <Text style={styles.perfName} numberOfLines={1}>{awayPerf.shortName}</Text>
             <Text style={styles.perfStat}>{awayPerf.stats[statKey]}</Text>
           </View>
           <Image source={{ uri: awayPerf.headshot }} style={styles.perfHeadshot} />
-        </View>
+        </TouchableOpacity>
         
         <Text style={styles.perfLabel}>{label}</Text>
         
-        <View style={styles.perfPlayerSide}>
+        <TouchableOpacity 
+          style={styles.perfPlayerSide}
+          onPress={() => homePerf.athleteId && router.push(`/player/${homePerf.athleteId}`)}
+        >
           <Image source={{ uri: homePerf.headshot }} style={[styles.perfHeadshot, { marginLeft: 0, marginRight: 8 }]} />
           <View style={[styles.perfPlayerInfo, { alignItems: 'flex-start' }]}>
             <Text style={styles.perfName} numberOfLines={1}>{homePerf.shortName}</Text>
             <Text style={styles.perfStat}>{homePerf.stats[statKey]}</Text>
           </View>
-        </View>
+        </TouchableOpacity>
       </View>
     );
 
@@ -378,52 +397,128 @@ export default function GameDetailScreen() {
   };
 
   const renderDetailedTeamStats = () => {
-    if (isScheduled || !game.boxscore?.teamStatistics) return null;
-    const t1 = game.boxscore.teamStatistics.team1;
-    const t2 = game.boxscore.teamStatistics.team2;
+    if (!isScheduled && game.boxscore?.teamStatistics) {
+      const t1 = game.boxscore.teamStatistics.team1;
+      const t2 = game.boxscore.teamStatistics.team2;
+
+      return (
+        <AnimatedSection index={3} visible={isDataLoaded}>
+          <View style={styles.section}>
+            <Text style={styles.sectionHeader}>数据对比</Text>
+            <View style={styles.detailedStatsCard}>
+              <View style={styles.statsGroup}>
+                {renderStatRow('投篮 (FG)', t1.fieldGoals, t2.fieldGoals, calcPct(t1.fieldGoalPercent, t2.fieldGoalPercent), calcPct(t2.fieldGoalPercent, t1.fieldGoalPercent), `${t1.fieldGoalPercent}%`, `${t2.fieldGoalPercent}%`)}
+                {renderStatRow('三分 (3FG)', t1.threePointers, t2.threePointers, calcPct(t1.threePointPercent, t2.threePointPercent), calcPct(t2.threePointPercent, t1.threePointPercent), `${t1.threePointPercent}%`, `${t2.threePointPercent}%`)}
+                {renderStatRow('罚球 (FT)', t1.freeThrows, t2.freeThrows, calcPct(t1.freeThrowPercent, t2.freeThrowPercent), calcPct(t2.freeThrowPercent, t1.freeThrowPercent), `${t1.freeThrowPercent}%`, `${t2.freeThrowPercent}%`)}
+              </View>
+              <View style={styles.statsDivider} />
+              <View style={styles.statsGroup}>
+                {renderStatRow('总篮板', t1.rebounds, t2.rebounds, calcPct(t1.rebounds, t2.rebounds), calcPct(t2.rebounds, t1.rebounds))}
+                {renderStatRow('助攻', t1.assists, t2.assists, calcPct(t1.assists, t2.assists), calcPct(t2.assists, t1.assists))}
+                {renderStatRow('抢断', t1.steals, t2.steals, calcPct(t1.steals, t2.steals), calcPct(t2.steals, t1.steals))}
+                {renderStatRow('盖帽', t1.blocks, t2.blocks, calcPct(t1.blocks, t2.blocks), calcPct(t2.blocks, t1.blocks))}
+                {renderStatRow('失误', t1.turnovers, t2.turnovers, calcPct(t2.turnovers, t1.turnovers), calcPct(t1.turnovers, t2.turnovers))}
+              </View>
+              <View style={styles.statsDivider} />
+              <View style={styles.statsGroup}>
+                {renderStatRow('禁区得分', t1.pointsInPaint, t2.pointsInPaint, calcPct(t1.pointsInPaint, t2.pointsInPaint), calcPct(t2.pointsInPaint, t1.pointsInPaint))}
+                {renderStatRow('快攻得分', t1.fastBreakPoints, t2.fastBreakPoints, calcPct(t1.fastBreakPoints, t2.fastBreakPoints), calcPct(t2.fastBreakPoints, t1.fastBreakPoints))}
+                {renderStatRow('失误得分', t1.turnoverPoints, t2.turnoverPoints, calcPct(t1.turnoverPoints, t2.turnoverPoints), calcPct(t2.turnoverPoints, t1.turnoverPoints))}
+              </View>
+              <View style={styles.statsDivider} />
+              <View style={styles.statsGroup}>
+                {renderStatRow('最大领先', t1.largestLead, t2.largestLead, calcPct(t1.largestLead, t2.largestLead), calcPct(t2.largestLead, t1.largestLead))}
+                {renderStatRow('犯规', t1.fouls, t2.fouls, calcPct(t2.fouls, t1.fouls), calcPct(t1.fouls, t2.fouls))}
+              </View>
+            </View>
+          </View>
+        </AnimatedSection>
+      );
+    }
+
+    if (isScheduled && game.boxscore?.teams) {
+      const away = game.boxscore.teams.find(t => t.homeAway === 'away');
+      const home = game.boxscore.teams.find(t => t.homeAway === 'home');
+      
+      if (!away?.statistics || !home?.statistics) return null;
+
+      const getVal = (stats: TeamStatItem[], name: string) => 
+        stats.find(s => s.name === name || s.label === name)?.displayValue || '0';
+
+      const renderInfoRow = (label: string, awayVal: string, homeVal: string) => (
+        <View style={styles.statRow} key={label}>
+          <View style={styles.statLabelRow}>
+            <Text style={styles.statMainValue}>{awayVal}</Text>
+            <Text style={styles.statLabelText}>{label}</Text>
+            <Text style={[styles.statMainValue, { textAlign: 'right' }]}>{homeVal}</Text>
+          </View>
+          <View style={[styles.statBarContainer, { height: 1, backgroundColor: COLORS.divider, marginTop: 8 }]} />
+        </View>
+      );
+
+      return (
+        <AnimatedSection index={3} visible={isDataLoaded}>
+          <View style={styles.section}>
+            <Text style={styles.sectionHeader}>赛季场均对比</Text>
+            <View style={styles.detailedStatsCard}>
+              {/* Group 1: Form & Efficiency */}
+              <View style={styles.statsGroup}>
+                {renderInfoRow('近期战绩', getVal(away.statistics, 'Last Ten Games'), getVal(home.statistics, 'Last Ten Games'))}
+                {renderInfoRow('连胜/连败', getVal(away.statistics, 'streak'), getVal(home.statistics, 'streak'))}
+              </View>
+
+              <View style={styles.statsDivider} />
+
+              {/* Group 2: Scoring */}
+              <View style={styles.statsGroup}>
+                {renderStatRow('场均得分', getVal(away.statistics, 'avgPoints'), getVal(home.statistics, 'avgPoints'), calcPct(getVal(away.statistics, 'avgPoints'), getVal(home.statistics, 'avgPoints')), calcPct(getVal(home.statistics, 'avgPoints'), getVal(away.statistics, 'avgPoints')))}
+                {renderStatRow('场均失分', getVal(away.statistics, 'avgPointsAgainst'), getVal(home.statistics, 'avgPointsAgainst'), calcPct(getVal(home.statistics, 'avgPointsAgainst'), getVal(away.statistics, 'avgPointsAgainst')), calcPct(getVal(away.statistics, 'avgPointsAgainst'), getVal(home.statistics, 'avgPointsAgainst')))}
+                {renderStatRow('投篮命中率', `${getVal(away.statistics, 'fieldGoalPct')}%`, `${getVal(home.statistics, 'fieldGoalPct')}%`, calcPct(getVal(away.statistics, 'fieldGoalPct'), getVal(home.statistics, 'fieldGoalPct')), calcPct(getVal(home.statistics, 'fieldGoalPct'), getVal(away.statistics, 'fieldGoalPct')))}
+                {renderStatRow('三分命中率', `${getVal(away.statistics, 'threePointFieldGoalPct')}%`, `${getVal(home.statistics, 'threePointFieldGoalPct')}%`, calcPct(getVal(away.statistics, 'threePointFieldGoalPct'), getVal(home.statistics, 'threePointFieldGoalPct')), calcPct(getVal(home.statistics, 'threePointFieldGoalPct'), getVal(away.statistics, 'threePointFieldGoalPct')))}
+              </View>
+
+              <View style={styles.statsDivider} />
+
+              {/* Group 3: Activity */}
+              <View style={styles.statsGroup}>
+                {renderStatRow('场均篮板', getVal(away.statistics, 'avgRebounds'), getVal(home.statistics, 'avgRebounds'), calcPct(getVal(away.statistics, 'avgRebounds'), getVal(home.statistics, 'avgRebounds')), calcPct(getVal(home.statistics, 'avgRebounds'), getVal(away.statistics, 'avgRebounds')))}
+                {renderStatRow('场均助攻', getVal(away.statistics, 'avgAssists'), getVal(home.statistics, 'avgAssists'), calcPct(getVal(away.statistics, 'avgAssists'), getVal(home.statistics, 'avgAssists')), calcPct(getVal(home.statistics, 'avgAssists'), getVal(away.statistics, 'avgAssists')))}
+                {renderStatRow('场均抢断', getVal(away.statistics, 'avgSteals'), getVal(home.statistics, 'avgSteals'), calcPct(getVal(away.statistics, 'avgSteals'), getVal(home.statistics, 'avgSteals')), calcPct(getVal(home.statistics, 'avgSteals'), getVal(away.statistics, 'avgSteals')))}
+                {renderStatRow('场均盖帽', getVal(away.statistics, 'avgBlocks'), getVal(home.statistics, 'avgBlocks'), calcPct(getVal(away.statistics, 'avgBlocks'), getVal(home.statistics, 'avgBlocks')), calcPct(getVal(home.statistics, 'avgBlocks'), getVal(away.statistics, 'avgBlocks')))}
+                {renderStatRow('场均失误', getVal(away.statistics, 'avgTotalTurnovers'), getVal(home.statistics, 'avgTotalTurnovers'), calcPct(getVal(home.statistics, 'avgTotalTurnovers'), getVal(away.statistics, 'avgTotalTurnovers')), calcPct(getVal(away.statistics, 'avgTotalTurnovers'), getVal(home.statistics, 'avgTotalTurnovers')))}
+              </View>
+            </View>
+          </View>
+        </AnimatedSection>
+      );
+    }
+
+    return null;
+  };
+
+  const renderSeasonSeries = () => {
+    if (!game.seasonSeries?.games?.length) return null;
 
     return (
-      <AnimatedSection index={3} visible={isDataLoaded}>
+      <AnimatedSection index={1} visible={isDataLoaded}>
         <View style={styles.section}>
-          <Text style={styles.sectionHeader}>数据对比</Text>
-          <View style={styles.detailedStatsCard}>
-            {/* Group 1: Efficiency */}
-            <View style={styles.statsGroup}>
-              {renderStatRow('投篮 (FG)', t1.fieldGoals, t2.fieldGoals, calcPct(t1.fieldGoalPercent, t2.fieldGoalPercent), calcPct(t2.fieldGoalPercent, t1.fieldGoalPercent), `${t1.fieldGoalPercent}%`, `${t2.fieldGoalPercent}%`)}
-              {renderStatRow('三分 (3FG)', t1.threePointers, t2.threePointers, calcPct(t1.threePointPercent, t2.threePointPercent), calcPct(t2.threePointPercent, t1.threePointPercent), `${t1.threePointPercent}%`, `${t2.threePointPercent}%`)}
-              {renderStatRow('罚球 (FT)', t1.freeThrows, t2.freeThrows, calcPct(t1.freeThrowPercent, t2.freeThrowPercent), calcPct(t2.freeThrowPercent, t1.freeThrowPercent), `${t1.freeThrowPercent}%`, `${t2.freeThrowPercent}%`)}
-            </View>
-
-            <View style={styles.statsDivider} />
-
-            {/* Group 2: Possession */}
-            <View style={styles.statsGroup}>
-              {renderStatRow('总篮板', t1.rebounds, t2.rebounds, calcPct(t1.rebounds, t2.rebounds), calcPct(t2.rebounds, t1.rebounds))}
-              {renderStatRow('前场篮板', t1.offensiveRebounds, t2.offensiveRebounds, calcPct(t1.offensiveRebounds, t2.offensiveRebounds), calcPct(t2.offensiveRebounds, t1.offensiveRebounds))}
-              {renderStatRow('后场篮板', t1.defensiveRebounds, t2.defensiveRebounds, calcPct(t1.defensiveRebounds, t2.defensiveRebounds), calcPct(t2.defensiveRebounds, t1.defensiveRebounds))}
-              {renderStatRow('助攻', t1.assists, t2.assists, calcPct(t1.assists, t2.assists), calcPct(t2.assists, t1.assists))}
-              {renderStatRow('抢断', t1.steals, t2.steals, calcPct(t1.steals, t2.steals), calcPct(t2.steals, t1.steals))}
-              {renderStatRow('盖帽', t1.blocks, t2.blocks, calcPct(t1.blocks, t2.blocks), calcPct(t2.blocks, t1.blocks))}
-              {renderStatRow('失误', t1.turnovers, t2.turnovers, calcPct(t2.turnovers, t1.turnovers), calcPct(t1.turnovers, t2.turnovers))}
-            </View>
-
-            <View style={styles.statsDivider} />
-
-            {/* Group 3: Specialty */}
-            <View style={styles.statsGroup}>
-              {renderStatRow('禁区得分', t1.pointsInPaint, t2.pointsInPaint, calcPct(t1.pointsInPaint, t2.pointsInPaint), calcPct(t2.pointsInPaint, t1.pointsInPaint))}
-              {renderStatRow('快攻得分', t1.fastBreakPoints, t2.fastBreakPoints, calcPct(t1.fastBreakPoints, t2.fastBreakPoints), calcPct(t2.fastBreakPoints, t1.fastBreakPoints))}
-              {renderStatRow('失误得分', t1.turnoverPoints, t2.turnoverPoints, calcPct(t1.turnoverPoints, t2.turnoverPoints), calcPct(t2.turnoverPoints, t1.turnoverPoints))}
-            </View>
-
-            <View style={styles.statsDivider} />
-
-            {/* Group 4: Extras */}
-            <View style={styles.statsGroup}>
-              {renderStatRow('最大领先', t1.largestLead, t2.largestLead, calcPct(t1.largestLead, t2.largestLead), calcPct(t2.largestLead, t1.largestLead))}
-              {renderStatRow('犯规', t1.fouls, t2.fouls, calcPct(t2.fouls, t1.fouls), calcPct(t1.fouls, t2.fouls))}
-              {t1.technicalFouls > 0 || t2.technicalFouls > 0 ? renderStatRow('技术犯规', t1.technicalFouls, t2.technicalFouls, calcPct(t1.technicalFouls, t2.technicalFouls), calcPct(t2.technicalFouls, t1.technicalFouls)) : null}
-            </View>
+          <Text style={styles.sectionHeader}>赛季交锋</Text>
+          <View style={styles.seriesCard}>
+            {game.seasonSeries.games.map((g: any, idx: number) => (
+              <View key={idx} style={[styles.seriesRow, idx < game.seasonSeries.games.length - 1 && styles.seriesDivider]}>
+                <Text style={styles.seriesDate}>{g.dateFormatted.date}</Text>
+                <View style={styles.seriesContent}>
+                  <Text style={[styles.seriesTeam, g.awayTeam.winner && styles.boldText]}>
+                    {g.awayTeam.abbreviation} {g.awayTeam.score}
+                  </Text>
+                  <Text style={styles.seriesVs}>@</Text>
+                  <Text style={[styles.seriesTeam, g.homeTeam.winner && styles.boldText]}>
+                    {g.homeTeam.abbreviation} {g.homeTeam.score}
+                  </Text>
+                </View>
+                <Text style={styles.seriesStatus}>{g.status === 3 ? '已结束' : '未开始'}</Text>
+              </View>
+            ))}
           </View>
         </View>
       </AnimatedSection>
@@ -432,7 +527,26 @@ export default function GameDetailScreen() {
 
   const renderGameTab = () => (
     <View style={styles.tabContent}>
-      {/* 1. Impact (Period Scores) */}
+      {/* 1. Both Teams Basic Data (for scheduled) */}
+      {isScheduled && (
+        <AnimatedSection index={0} visible={isDataLoaded}>
+          <View style={styles.pregameInfoCard}>
+            <View style={styles.pregameTeam}>
+              <Image source={getTeamImage(awayTeam.abbreviation)} style={styles.teamHeaderLogo} />
+              <Text style={styles.pregameRecord}>{awayTeam.wins}-{awayTeam.losses}</Text>
+              <Text style={styles.pregameLabel}>战绩</Text>
+            </View>
+            <View style={styles.pregameDivider} />
+            <View style={styles.pregameTeam}>
+              <Image source={getTeamImage(homeTeam.abbreviation)} style={styles.teamHeaderLogo} />
+              <Text style={styles.pregameRecord}>{homeTeam.wins}-{homeTeam.losses}</Text>
+              <Text style={styles.pregameLabel}>战绩</Text>
+            </View>
+          </View>
+        </AnimatedSection>
+      )}
+
+      {/* 2. Impact (Period Scores) */}
       {!isScheduled && (
         <AnimatedSection index={0} visible={isDataLoaded}>
           <View style={styles.periodScoresCard}>
@@ -511,6 +625,9 @@ export default function GameDetailScreen() {
         </AnimatedSection>
       )}
 
+      {/* 3. Season Series (for scheduled) */}
+      {isScheduled && renderSeasonSeries()}
+
       {/* 2. Understanding (AI Summary) */}
       {isFinished && summaryData?.summary && (
         <AnimatedSection index={1} visible={isDataLoaded}>
@@ -534,17 +651,20 @@ export default function GameDetailScreen() {
         <AnimatedSection index={2} visible={isDataLoaded}>
           <View style={styles.section}>
             <Text style={styles.sectionHeader}>主宰比赛</Text>
-            <View style={styles.mvpCompactCard}>
+            <TouchableOpacity 
+              style={styles.mvpCompactCard}
+              onPress={() => game.boxscore.gameMVP.athleteId && router.push(`/player/${game.boxscore.gameMVP.athleteId}`)}
+            >
               <Image source={{ uri: game.boxscore.gameMVP.headshot }} style={styles.mvpHeadshot} />
               <View style={styles.mvpInfo}>
                 <Text style={styles.mvpName}>{game.boxscore.gameMVP.name}</Text>
                 <View style={styles.mvpStatsRow}>
-                  <Text style={styles.mvpStatItem}><Text style={styles.white}>{game.boxscore.gameMVP.stats.points}</Text> PTS</Text>
-                  <Text style={styles.mvpStatItem}><Text style={styles.white}>{game.boxscore.gameMVP.stats.rebounds}</Text> REB</Text>
-                  <Text style={styles.mvpStatItem}><Text style={styles.white}>{game.boxscore.gameMVP.stats.assists}</Text> AST</Text>
+                  <Text style={styles.mvpStatItem}><Text style={styles.white}>{game.boxscore.gameMVP.stats.points}</Text> 得分</Text>
+                  <Text style={styles.mvpStatItem}><Text style={styles.white}>{game.boxscore.gameMVP.stats.rebounds}</Text> 篮板</Text>
+                  <Text style={styles.mvpStatItem}><Text style={styles.white}>{game.boxscore.gameMVP.stats.assists}</Text> 助攻</Text>
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
           </View>
         </AnimatedSection>
       )}
@@ -556,7 +676,117 @@ export default function GameDetailScreen() {
     </View>
   );
 
-  const TeamPlayerStatsView = ({ team, boxscoreTeam }: { team: Team, boxscoreTeam?: TeamStats }) => {
+  const TeamPlayerStatsView = ({ team, boxscoreTeam, seasonStats }: { team: Team, boxscoreTeam?: TeamStats, seasonStats?: any }) => {
+    if (isScheduled) {
+      if (!seasonStats?.players) {
+        return (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color={COLORS.textSecondary} />
+          </View>
+        );
+      }
+
+      const roster = seasonStats.players;
+      const teamTotals = seasonStats.teamStats;
+      
+      return (
+        <View style={styles.tabContent}>
+          <TouchableOpacity 
+            style={styles.teamHeaderCard}
+            onPress={() => router.push(`/team/${team.abbreviation}`)}
+          >
+            <Image source={getTeamImage(team.abbreviation)} style={styles.teamHeaderLogo} />
+            <View>
+              <Text style={styles.teamHeaderName}>{team.nameZhCN || team.name}</Text>
+              <Text style={styles.teamHeaderRecord}>{seasonStats.team?.record || `${team.wins}-${team.losses}`}</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Totals card for season average */}
+          {teamTotals && (
+            <View style={styles.teamTotalsCard}>
+              <View style={styles.totalsHeader}>
+                <Text style={styles.totalsTitle}>赛季场均数据</Text>
+              </View>
+              <View style={styles.totalsGrid}>
+                <View style={styles.totalItem}>
+                  <Text style={styles.totalLabel}>得分</Text>
+                  <Text style={styles.totalValue}>{teamTotals.avgPoints?.value || '-'}</Text>
+                </View>
+                <View style={styles.totalItem}>
+                  <Text style={styles.totalLabel}>篮板</Text>
+                  <Text style={styles.totalValue}>{teamTotals.avgRebounds?.value || '-'}</Text>
+                </View>
+                <View style={styles.totalItem}>
+                  <Text style={styles.totalLabel}>助攻</Text>
+                  <Text style={styles.totalValue}>{teamTotals.avgAssists?.value || '-'}</Text>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Column Header */}
+          <View style={styles.gridContainer}>
+            <View style={styles.pinnedColumn}>
+              <View style={styles.columnHeader}>
+                <Text style={styles.columnLabelPlayer}>球员</Text>
+              </View>
+      {roster.map((player: any) => (
+        <View key={`name-${player.id}`} style={styles.playerRow}>
+          <TouchableOpacity 
+            style={styles.playerPinnedColumn}
+            onPress={() => router.push(`/player/${player.id}`)}
+          >
+            <Image source={{ uri: `https://a.espncdn.com/i/headshots/nba/600/${player.id}.png` }} style={styles.playerAvatar} />
+            <View style={styles.playerNameContainer}>
+              <Text style={styles.playerName} numberOfLines={1}>{player.name}</Text>
+              <Text style={styles.playerPosition}>{player.position}</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      ))}
+            </View>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View>
+                <View style={styles.columnHeader}>
+                  <View style={styles.columnStatsLabels}>
+                    <Text style={styles.columnLabel}>场次</Text>
+                    <Text style={styles.columnLabel}>分钟</Text>
+                    <Text style={styles.columnLabel}>得分</Text>
+                    <Text style={styles.columnLabel}>篮板</Text>
+                    <Text style={styles.columnLabel}>助攻</Text>
+                    <Text style={styles.columnLabel}>抢断</Text>
+                    <Text style={styles.columnLabel}>盖帽</Text>
+                    <Text style={styles.columnLabel}>失误</Text>
+                    <Text style={styles.columnLabel}>犯规</Text>
+                    <Text style={styles.columnLabelWide}>助攻/失误</Text>
+                  </View>
+                </View>
+
+                {roster.map((player: any) => (
+                  <View key={`stats-${player.id}`} style={styles.playerRow}>
+                    <View style={styles.playerStatsGrid}>
+                      <Text style={styles.statCell}>{player.gamesPlayed}</Text>
+                      <Text style={styles.statCell}>{player.avgMinutes}</Text>
+                      <Text style={[styles.statCell, styles.statCellBold]}>{player.avgPoints}</Text>
+                      <Text style={styles.statCell}>{player.avgRebounds}</Text>
+                      <Text style={styles.statCell}>{player.avgAssists}</Text>
+                      <Text style={styles.statCell}>{player.avgSteals}</Text>
+                      <Text style={styles.statCell}>{player.avgBlocks}</Text>
+                      <Text style={styles.statCell}>{player.avgTurnovers}</Text>
+                      <Text style={styles.statCell}>{player.avgFouls}</Text>
+                      <Text style={styles.statCellWide}>{player.assistTurnoverRatio}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      );
+    }
+
     if (!boxscoreTeam || isScheduled) {
       return (
         <View style={styles.emptyContainer}>
@@ -567,13 +797,16 @@ export default function GameDetailScreen() {
 
     const renderPlayerNameColumn = (player: Athlete) => (
       <View key={`name-${player.athleteId}`} style={[styles.playerRow, player.didNotPlay && { opacity: 0.5 }]}>
-        <View style={styles.playerPinnedColumn}>
+        <TouchableOpacity 
+          style={styles.playerPinnedColumn}
+          onPress={() => router.push(`/player/${player.athleteId}`)}
+        >
           <Image source={{ uri: player.headshot }} style={styles.playerAvatar} />
           <View style={styles.playerNameContainer}>
             <Text style={styles.playerName} numberOfLines={1}>{player.shortName}</Text>
             <Text style={styles.playerPosition}>{player.position}</Text>
           </View>
-        </View>
+        </TouchableOpacity>
       </View>
     );
 
@@ -588,6 +821,9 @@ export default function GameDetailScreen() {
             <>
               <Text style={styles.statCell}>{player.stats.minutes}</Text>
               <Text style={[styles.statCell, styles.statCellBold]}>{player.stats.points}</Text>
+              <Text style={styles.statCellWide}>{player.stats.fieldGoals}</Text>
+              <Text style={styles.statCellWide}>{player.stats.threePointers}</Text>
+              <Text style={styles.statCellWide}>{player.stats.freeThrows}</Text>
               <Text style={styles.statCell}>{player.stats.rebounds}</Text>
               <Text style={styles.statCell}>{player.stats.assists}</Text>
               <Text style={styles.statCell}>{player.stats.steals}</Text>
@@ -704,15 +940,15 @@ export default function GameDetailScreen() {
                 <View style={styles.columnStatsLabels}>
                   <Text style={styles.columnLabel}>时间</Text>
                   <Text style={styles.columnLabel}>得分</Text>
+                  <Text style={styles.columnLabelWide}>投篮</Text>
+                  <Text style={styles.columnLabelWide}>三分</Text>
+                  <Text style={styles.columnLabelWide}>罚球</Text>
                   <Text style={styles.columnLabel}>篮板</Text>
                   <Text style={styles.columnLabel}>助攻</Text>
                   <Text style={styles.columnLabel}>抢断</Text>
                   <Text style={styles.columnLabel}>盖帽</Text>
                   <Text style={styles.columnLabel}>失误</Text>
                   <Text style={styles.columnLabel}>犯规</Text>
-                  <Text style={styles.columnLabelWide}>投篮</Text>
-                  <Text style={styles.columnLabelWide}>三分</Text>
-                  <Text style={styles.columnLabelWide}>罚球</Text>
                   <Text style={styles.columnLabel}>+/-</Text>
                 </View>
               </View>
@@ -769,10 +1005,13 @@ export default function GameDetailScreen() {
             { translateY: expandedTranslateY }
           ] 
         }]}>
-          <View style={styles.teamContainer}>
+          <TouchableOpacity 
+            style={styles.teamContainer}
+            onPress={() => router.push(`/team/${awayTeam.abbreviation}`)}
+          >
             <Image source={getTeamImage(awayTeam.abbreviation)} style={styles.logo} />
             <Text style={styles.teamName}>{awayTeam.nameZhCN || awayTeam.name}</Text>
-          </View>
+          </TouchableOpacity>
           
           <View style={styles.scoreContainer}>
             <Text style={styles.mainScore}>{awayTeam.score} - {homeTeam.score}</Text>
@@ -785,10 +1024,13 @@ export default function GameDetailScreen() {
             </Text>
           </View>
 
-          <View style={styles.teamContainer}>
+          <TouchableOpacity 
+            style={styles.teamContainer}
+            onPress={() => router.push(`/team/${homeTeam.abbreviation}`)}
+          >
             <Image source={getTeamImage(homeTeam.abbreviation)} style={styles.logo} />
             <Text style={styles.teamName}>{homeTeam.nameZhCN || homeTeam.name}</Text>
-          </View>
+          </TouchableOpacity>
         </Animated.View>
 
         {/* Tabs */}
@@ -827,8 +1069,8 @@ export default function GameDetailScreen() {
           transform: [{ translateX: tabContentAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 16] }) }]
         }}>
           {activeTab === 'game' ? renderGameTab() : 
-           activeTab === 'away' ? <TeamPlayerStatsView team={awayTeam} boxscoreTeam={game.boxscore?.teams?.find(t => t.homeAway === 'away')} /> :
-           <TeamPlayerStatsView team={homeTeam} boxscoreTeam={game.boxscore?.teams?.find(t => t.homeAway === 'home')} />}
+           activeTab === 'away' ? <TeamPlayerStatsView team={awayTeam} boxscoreTeam={game.boxscore?.teams?.find(t => t.homeAway === 'away')} seasonStats={teamStatsAway} /> :
+           <TeamPlayerStatsView team={homeTeam} boxscoreTeam={game.boxscore?.teams?.find(t => t.homeAway === 'home')} seasonStats={teamStatsHome} />}
         </Animated.View>
         <View style={{ height: insets.bottom + 100 }} />
       </Animated.ScrollView>
@@ -1203,6 +1445,87 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.divider,
     marginVertical: 4,
   },
+  // Pregame Info Styles
+  pregameInfoCard: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    alignItems: 'center',
+  },
+  pregameTeam: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  pregameRecord: {
+    color: COLORS.textMain,
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  pregameLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 4,
+    textTransform: 'uppercase',
+  },
+  pregameDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: COLORS.divider,
+  },
+  // Series Styles
+  seriesCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 4,
+  },
+  seriesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  seriesDivider: {
+    borderBottomWidth: 0.5,
+    borderBottomColor: COLORS.divider,
+  },
+  seriesDate: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '500',
+    width: 60,
+  },
+  seriesContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  seriesTeam: {
+    color: COLORS.textMain,
+    fontSize: 15,
+    fontWeight: '600',
+    width: 60,
+    textAlign: 'center',
+  },
+  seriesVs: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  seriesStatus: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    fontWeight: '600',
+    width: 60,
+    textAlign: 'right',
+  },
+  boldText: {
+    fontWeight: '800',
+    color: COLORS.textMain,
+  },
   // Team Player Stats Styles
   teamHeaderCard: {
     flexDirection: 'row',
@@ -1270,7 +1593,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   pinnedColumn: {
-    width: 130,
+    width: 160,
     backgroundColor: COLORS.bg,
     zIndex: 1,
   },
@@ -1285,7 +1608,7 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 11,
     fontWeight: '700',
-    paddingLeft: 4,
+    paddingLeft: 12,
   },
   columnStatsLabels: {
     flexDirection: 'row',
@@ -1321,8 +1644,9 @@ const styles = StyleSheet.create({
   playerPinnedColumn: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: 130,
+    width: 160,
     backgroundColor: COLORS.bg,
+    paddingLeft: 12,
   },
   playerAvatar: {
     width: 32,
