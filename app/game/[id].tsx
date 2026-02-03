@@ -26,6 +26,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, MOTION } from '../../src/constants/theme';
 import { AnimatedSection } from '../../src/components/AnimatedSection';
 
+import { Skeleton } from '../../src/components/Skeleton';
+import { ErrorState } from '../../src/components/ErrorState';
+
 const { width } = Dimensions.get('window');
 
 const HEADER_EXPANDED_HEIGHT = 180;
@@ -72,9 +75,9 @@ interface Period {
 interface Team {
   id: string;
   name: string;
-  nameZhCN?: string;
+  nameZhCN: string;
   city: string;
-  cityZhCN?: string;
+  cityZhCN: string;
   abbreviation: string;
   logo: string;
   wins: number;
@@ -134,6 +137,20 @@ interface TeamStats {
   };
 }
 
+interface Injury {
+  playerId: string;
+  name: string;
+  headshot: string;
+  position: string;
+  status: string;
+  statusText: string;
+  date: string;
+  teamId: string;
+  teamAbbreviation: string;
+  teamName: string;
+  teamNameZhCN: string;
+}
+
 interface GameDetail {
   gameId: string;
   gameStatusText: string;
@@ -144,6 +161,11 @@ interface GameDetail {
   awayTeam: Team;
   seasonSeries: {
     games: any[];
+  };
+  injuries?: {
+    away: Injury[];
+    home: Injury[];
+    gameStarted: boolean;
   };
   boxscore?: {
     teamStatistics?: {
@@ -168,12 +190,22 @@ export default function GameDetailScreen() {
   const tabContentAnim = useRef(new Animated.Value(0)).current;
 
   // Data Fetching
-  const { data: game, isLoading: isLoadingDetail, error: detailError } = useQuery<GameDetail>({
+  const { data: game, isLoading: isLoadingDetail, error: detailError, refetch } = useQuery<GameDetail>({
     queryKey: ['gameDetail', id],
     queryFn: () => fetchGameDetail(id),
+    refetchInterval: (query) => {
+      const data = query.state.data as GameDetail | undefined;
+      // Refresh every 10s if live (status 2)
+      return data?.gameStatus === 2 ? 10000 : false;
+    },
+    // Ensure we don't use cached data when it's live
+    staleTime: (query) => {
+      const data = query.state.data as GameDetail | undefined;
+      return data?.gameStatus === 2 ? 0 : 5000;
+    },
   });
 
-  const { data: summaryData } = useQuery({
+  const { data: summaryData, isLoading: isLoadingSummary } = useQuery({
     queryKey: ['gameSummary', id],
     queryFn: () => fetchGameSummary(id),
     enabled: !!game && game.gameStatus === 3, 
@@ -267,13 +299,47 @@ export default function GameDetailScreen() {
 
   if (isLoadingDetail) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="small" color={COLORS.textSecondary} />
+      <View style={styles.container}>
+        <View style={[styles.header, { height: HEADER_EXPANDED_HEIGHT + insets.top, paddingTop: insets.top, backgroundColor: COLORS.header }]}>
+          <View style={styles.navBar}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
+              <Ionicons name="chevron-back" size={24} color={COLORS.textMain} />
+            </TouchableOpacity>
+          </View>
+          <View style={[styles.scoreboard, { paddingBottom: 48 }]}>
+            <View style={styles.teamContainer}>
+              <Skeleton width={44} height={44} borderRadius={22} />
+              <Skeleton width={60} height={12} style={{ marginTop: 8 }} />
+            </View>
+            <View style={styles.scoreContainer}>
+              <Skeleton width={100} height={36} />
+              <Skeleton width={60} height={12} style={{ marginTop: 8 }} />
+            </View>
+            <View style={styles.teamContainer}>
+              <Skeleton width={44} height={44} borderRadius={22} />
+              <Skeleton width={60} height={12} style={{ marginTop: 8 }} />
+            </View>
+          </View>
+        </View>
+        <ScrollView style={{ marginTop: HEADER_EXPANDED_HEIGHT + insets.top + 20 }} contentContainerStyle={{ padding: 16 }}>
+          <Skeleton width="100%" height={100} borderRadius={16} style={{ marginBottom: 24 }} />
+          <Skeleton width="100%" height={200} borderRadius={16} style={{ marginBottom: 24 }} />
+          <Skeleton width="100%" height={150} borderRadius={16} />
+        </ScrollView>
       </View>
     );
   }
 
-  if (detailError || !game) return null;
+  if (detailError) {
+    return (
+      <ErrorState 
+        message={detailError instanceof Error ? detailError.message : '无法获取比赛详情'} 
+        onRetry={refetch} 
+      />
+    );
+  }
+
+  if (!game) return null;
 
   const { homeTeam, awayTeam } = game;
   const isScheduled = Number(game.gameStatus) === 1 || Number(game.gameStatus) === 6;
@@ -492,6 +558,61 @@ export default function GameDetailScreen() {
     );
   };
 
+  const renderInjuries = () => {
+    if (!isScheduled || !game.injuries) return null;
+    const { away, home } = game.injuries;
+    if (!away?.length && !home?.length) return null;
+
+    const renderTeamInjuries = (teamAbbr: string, teamName: string, teamInjuries: Injury[]) => {
+      if (!teamInjuries?.length) return null;
+      return (
+        <View style={styles.injuryTeamSection}>
+          <View style={styles.injuryTeamHeader}>
+            <Image source={getTeamImage(teamAbbr)} style={styles.injuryTeamLogo} />
+            <Text style={styles.injuryTeamName}>{teamName}</Text>
+          </View>
+          <View style={styles.injuryCard}>
+            {teamInjuries.map((p, pIdx) => (
+              <TouchableOpacity 
+                key={p.playerId} 
+                style={[styles.injuryRow, pIdx < teamInjuries.length - 1 && styles.seriesDivider]}
+                onPress={() => navigateToPlayer(p.playerId)}
+              >
+                <Image 
+                  source={{ uri: p.headshot }} 
+                  style={styles.injuryHeadshot} 
+                />
+                <View style={styles.injuryInfo}>
+                  <View style={styles.injuryNameRow}>
+                    <Text style={styles.injuryPlayerName}>{p.name}</Text>
+                    <View style={[styles.injuryStatusBadge, { backgroundColor: p.status.toLowerCase().includes('out') ? '#ef444420' : '#f59e0b20' }]}>
+                      <Text style={[styles.injuryStatusText, { color: p.status.toLowerCase().includes('out') ? '#ef4444' : '#f59e0b' }]}>
+                        {p.status}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.injuryComment} numberOfLines={1}>{p.statusText}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      );
+    };
+
+    return (
+      <AnimatedSection index={2} visible={isDataLoaded}>
+        <View style={styles.section}>
+          <Text style={styles.sectionHeader}>伤病名单</Text>
+          <View style={styles.injuryContainer}>
+            {renderTeamInjuries(awayTeam.abbreviation, awayTeam.nameZhCN, away)}
+            {renderTeamInjuries(homeTeam.abbreviation, homeTeam.nameZhCN, home)}
+          </View>
+        </View>
+      </AnimatedSection>
+    );
+  };
+
   const renderGameTab = () => (
     <View style={styles.tabContent}>
       {/* 1. Both Teams Basic Data (for scheduled) */}
@@ -595,8 +716,11 @@ export default function GameDetailScreen() {
       {/* 3. Season Series (for scheduled) */}
       {isScheduled && renderSeasonSeries()}
 
+      {/* 4. Injuries (for scheduled) */}
+      {isScheduled && renderInjuries()}
+
       {/* 2. Understanding (AI Summary) */}
-      {isFinished && summaryData?.summary && (
+      {isFinished && (
         <AnimatedSection index={1} visible={isDataLoaded}>
           <View style={styles.highlightSection}>
             <LinearGradient
@@ -607,7 +731,18 @@ export default function GameDetailScreen() {
                 <Ionicons name="sparkles" size={14} color={COLORS.accent} />
                 <Text style={styles.aiTitle}>AI INSIGHTS</Text>
               </View>
-              <Text style={styles.aiText}>{summaryData.summary}</Text>
+              {isLoadingSummary ? (
+                <View style={styles.aiLoadingContainer}>
+                  <Skeleton width="100%" height={20} style={{ marginBottom: 12 }} />
+                  <Skeleton width="90%" height={20} style={{ marginBottom: 12 }} />
+                  <Skeleton width="95%" height={20} />
+                  <Text style={styles.aiLoadingText}>正在生成 AI 比赛总结...</Text>
+                </View>
+              ) : summaryData?.summary ? (
+                <Text style={styles.aiText}>{summaryData.summary}</Text>
+              ) : (
+                <Text style={styles.aiText}>暂无 AI 总结</Text>
+              )}
             </LinearGradient>
           </View>
         </AnimatedSection>
@@ -707,6 +842,34 @@ export default function GameDetailScreen() {
                 <View style={styles.totalItem}>
                   <Text style={styles.totalLabel}>助攻</Text>
                   <Text style={styles.totalValue}>{teamTotals.avgAssists?.value || '-'}</Text>
+                </View>
+              </View>
+              <View style={styles.totalsGrid}>
+                <View style={styles.totalItem}>
+                  <Text style={styles.totalLabel}>抢断</Text>
+                  <Text style={styles.totalValue}>{teamTotals.avgSteals?.value || '-'}</Text>
+                </View>
+                <View style={styles.totalItem}>
+                  <Text style={styles.totalLabel}>盖帽</Text>
+                  <Text style={styles.totalValue}>{teamTotals.avgBlocks?.value || '-'}</Text>
+                </View>
+                <View style={styles.totalItem}>
+                  <Text style={styles.totalLabel}>失误</Text>
+                  <Text style={styles.totalValue}>{teamTotals.avgTurnovers?.value || '-'}</Text>
+                </View>
+              </View>
+              <View style={styles.totalsGrid}>
+                <View style={styles.totalItem}>
+                  <Text style={styles.totalLabel}>投篮命中率</Text>
+                  <Text style={styles.totalValue}>{teamTotals.fieldGoalPct?.value || '-'}</Text>
+                </View>
+                <View style={styles.totalItem}>
+                  <Text style={styles.totalLabel}>三分命中率</Text>
+                  <Text style={styles.totalValue}>{teamTotals.threePointFieldGoalPct?.value || '-'}</Text>
+                </View>
+                <View style={styles.totalItem}>
+                  <Text style={styles.totalLabel}>罚球命中率</Text>
+                  <Text style={styles.totalValue}>{teamTotals.freeThrowPct?.value || '-'}</Text>
                 </View>
               </View>
             </View>
@@ -817,12 +980,9 @@ export default function GameDetailScreen() {
               <Text style={styles.statCell}>{player.stats.blocks}</Text>
               <Text style={styles.statCell}>{player.stats.turnovers}</Text>
               <Text style={styles.statCell}>{player.stats.fouls}</Text>
-              <Text style={styles.statCellWide}>{player.stats.fieldGoals}</Text>
-              <Text style={styles.statCellWide}>{player.stats.threePointers}</Text>
-              <Text style={styles.statCellWide}>{player.stats.freeThrows}</Text>
               <Text style={[
-                styles.statCell, 
-                parseFloat(player.stats.plusMinus) > 0 ? { color: '#10b981' } : 
+                styles.statCell,
+                parseFloat(player.stats.plusMinus) > 0 ? { color: '#10b981' } :
                 parseFloat(player.stats.plusMinus) < 0 ? { color: '#ef4444' } : null
               ]}>
                 {parseFloat(player.stats.plusMinus) > 0 ? `${player.stats.plusMinus}` : player.stats.plusMinus}
@@ -972,13 +1132,20 @@ export default function GameDetailScreen() {
             <Text style={styles.compactScoreText}>
               {awayTeam.abbreviation} {awayTeam.score} - {homeTeam.score} {homeTeam.abbreviation}
             </Text>
-            <Text style={styles.compactStatus}>
-              {game.gameStatus === 3 ? '已结束' : 
-               game.gameStatus === 2 ? '直播中' : 
-               game.gameStatus === 6 ? '延期' : 
-               game.gameStatus === 1 ? '未开始' : 
-               game.gameStatusText.toUpperCase()}
-            </Text>
+            <View style={styles.liveInfoRow}>
+              <Text style={styles.compactStatus}>
+                {game.gameStatus === 3 ? '已结束' : 
+                 game.gameStatus === 2 ? '直播中' : 
+                 game.gameStatus === 6 ? '延期' : 
+                 game.gameStatus === 1 ? '未开始' : 
+                 game.gameStatusText.toUpperCase()}
+              </Text>
+              {game.gameStatus === 2 && (
+                <Text style={styles.compactLiveInfo}>
+                  {game.period > 4 ? `OT${game.period - 4}` : `Q${game.period}`} {game.gameClock}
+                </Text>
+              )}
+            </View>
           </Animated.View>
           
           <View style={styles.iconButton} />
@@ -1002,13 +1169,20 @@ export default function GameDetailScreen() {
           
           <View style={styles.scoreContainer}>
             <Text style={styles.mainScore}>{awayTeam.score} - {homeTeam.score}</Text>
-            <Text style={styles.gameStatusText}>
-              {game.gameStatus === 3 ? '已结束' : 
-               game.gameStatus === 2 ? '直播中' : 
-               game.gameStatus === 6 ? '延期' : 
-               game.gameStatus === 1 ? '未开始' : 
-               game.gameStatusText.toUpperCase()}
-            </Text>
+            <View style={styles.liveInfoRow}>
+              <Text style={styles.gameStatusText}>
+                {game.gameStatus === 3 ? '已结束' : 
+                 game.gameStatus === 2 ? '直播中' : 
+                 game.gameStatus === 6 ? '延期' : 
+                 game.gameStatus === 1 ? '未开始' : 
+                 game.gameStatusText.toUpperCase()}
+              </Text>
+              {game.gameStatus === 2 && (
+                <Text style={styles.liveClockText}>
+                  {game.period > 4 ? `OT${game.period - 4}` : `Q${game.period}`} {game.gameClock}
+                </Text>
+              )}
+            </View>
           </View>
 
           <TouchableOpacity 
@@ -1144,14 +1318,31 @@ const styles = StyleSheet.create({
   mainScore: {
     color: COLORS.textMain,
     fontSize: 36,
-    fontWeight: '800',
+    fontWeight: '700',
     letterSpacing: -1,
   },
   gameStatusText: {
     color: COLORS.textSecondary,
     fontSize: 11,
     fontWeight: '600',
+  },
+  liveInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginTop: 4,
+  },
+  liveClockText: {
+    color: COLORS.accent,
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  compactLiveInfo: {
+    color: COLORS.accent,
+    fontSize: 10,
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   // Tabs
   tabsContainer: {
@@ -1223,6 +1414,16 @@ const styles = StyleSheet.create({
     color: '#e7e9ea',
     fontSize: 16,
     lineHeight: 26,
+  },
+  aiLoadingContainer: {
+    paddingVertical: 8,
+  },
+  aiLoadingText: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    marginTop: 16,
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
   mvpCompactCard: {
     flexDirection: 'row',
@@ -1512,6 +1713,73 @@ const styles = StyleSheet.create({
   boldText: {
     fontWeight: '800',
     color: COLORS.textMain,
+  },
+  // Injury Styles
+  injuryContainer: {
+    gap: 16,
+  },
+  injuryTeamSection: {
+    gap: 8,
+  },
+  injuryTeamHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 4,
+  },
+  injuryTeamLogo: {
+    width: 20,
+    height: 20,
+  },
+  injuryTeamName: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  injuryCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 4,
+  },
+  injuryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    gap: 12,
+  },
+  injuryHeadshot: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#2c2c2e',
+  },
+  injuryInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  injuryNameRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  injuryPlayerName: {
+    color: COLORS.textMain,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  injuryStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  injuryStatusText: {
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  injuryComment: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
   },
   // Team Player Stats Styles
   teamHeaderCard: {

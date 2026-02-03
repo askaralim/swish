@@ -11,7 +11,8 @@ import {
   TouchableOpacity, 
   Image, 
   Animated, 
-  Dimensions
+  Dimensions,
+  Platform
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { fetchStandings } from '../src/services/api';
@@ -19,6 +20,7 @@ import { getTeamImage } from '../src/utils/teamImages';
 import { COLORS, MOTION } from '../src/constants/theme';
 import { AnimatedSection } from '../src/components/AnimatedSection';
 import { Skeleton } from '../src/components/Skeleton';
+import { ErrorState } from '../src/components/ErrorState';
 
 const { width } = Dimensions.get('window');
 
@@ -118,7 +120,7 @@ export default function TeamsScreen() {
           <Image source={logoSource} style={styles.teamLogo} resizeMode="contain" />
 
           <View style={styles.teamInfo}>
-            <Text style={styles.teamName}>{team.shortName || team.name}</Text>
+            <Text style={styles.teamName} numberOfLines={1}>{team.shortName || team.name}</Text>
             <View style={styles.recordRow}>
               <Text style={styles.winsLosses}>{team.wins}-{team.losses}</Text>
               <Text style={styles.dot}>·</Text>
@@ -175,14 +177,10 @@ export default function TeamsScreen() {
 
   if (error) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>
-          {error instanceof Error ? error.message : '加载失败'}
-        </Text>
-        <TouchableOpacity onPress={() => refetch()} style={styles.retryButton}>
-          <Text style={styles.retryButtonText}>重试</Text>
-        </TouchableOpacity>
-      </View>
+      <ErrorState 
+        message={error instanceof Error ? error.message : '无法获取联盟排名'} 
+        onRetry={refetch} 
+      />
     );
   }
 
@@ -357,7 +355,7 @@ const styles = StyleSheet.create({
   },
   teamName: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '600',
     color: COLORS.textMain,
     marginBottom: 2,
   },
@@ -367,8 +365,9 @@ const styles = StyleSheet.create({
   },
   winsLosses: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '500',
     color: COLORS.textMain,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   dot: {
     fontSize: 13,
@@ -378,7 +377,6 @@ const styles = StyleSheet.create({
   winPercent: {
     fontSize: 13,
     color: COLORS.textSecondary,
-    fontWeight: '500',
   },
   statsSide: {
     flexDirection: 'row',
@@ -397,12 +395,14 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
     color: COLORS.textMain,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   streakValue: {
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   winStreak: {
     color: COLORS.win,

@@ -19,6 +19,7 @@ import type { NewsResponse, Tweet } from '../src/types/news';
 import { COLORS, MOTION } from '../src/constants/theme';
 import { AnimatedSection } from '../src/components/AnimatedSection';
 import { Skeleton } from '../src/components/Skeleton';
+import { ErrorState } from '../src/components/ErrorState';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function NewsScreen() {
@@ -50,7 +51,8 @@ export default function NewsScreen() {
   };
 
   const openLink = (url: string | null) => {
-    if (url) Linking.openURL(url);
+    // Disabled for V1
+    // if (url) Linking.openURL(url);
   };
 
   const renderTweet = ({ item: tweet, index }: { item: Tweet, index: number }) => {
@@ -142,13 +144,10 @@ export default function NewsScreen() {
 
   if (error) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorTitle}>加载失败</Text>
-        <Text style={styles.errorMessage}>{error instanceof Error ? error.message : '未知错误'}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
-          <Text style={styles.retryText}>重试</Text>
-        </TouchableOpacity>
-      </View>
+      <ErrorState 
+        message={error instanceof Error ? error.message : '无法获取新闻推送'} 
+        onRetry={refetch} 
+      />
     );
   }
 

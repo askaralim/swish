@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import { 
   fetchTeamOverview, 
   fetchTeamLeaders,
@@ -24,13 +25,13 @@ import {
 import { getTeamImage } from '../../src/utils/teamImages';
 import { COLORS, MOTION } from '../../src/constants/theme';
 import { AnimatedSection } from '../../src/components/AnimatedSection';
+import { Skeleton } from '../../src/components/Skeleton';
+import { ErrorState } from '../../src/components/ErrorState';
 
 const { width } = Dimensions.get('window');
 
 const HEADER_EXPANDED_HEIGHT = 160;
 const HEADER_COLLAPSED_HEIGHT = 100;
-
-// --- Types ---
 
 // --- Types ---
 
@@ -100,7 +101,7 @@ export default function TeamDetailScreen() {
   const tabContentAnim = useRef(new Animated.Value(0)).current;
 
   // Data Fetching
-  const { data: overview, isLoading: isLoadingOverview } = useQuery<TeamOverview>({
+  const { data: overview, isLoading: isLoadingOverview, error: overviewError, refetch } = useQuery<TeamOverview>({
     queryKey: ['teamOverview', teamAbbr],
     queryFn: () => fetchTeamOverview(teamAbbr),
   });
@@ -147,6 +148,7 @@ export default function TeamDetailScreen() {
 
   const handleTabChange = (tab: 'overview' | 'schedule' | 'players') => {
     if (tab === activeTab) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const targetPos = tab === 'overview' ? 0 : tab === 'schedule' ? 1 : 2;
 
     Animated.parallel([
@@ -189,9 +191,42 @@ export default function TeamDetailScreen() {
 
   if (isLoadingOverview) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="small" color={COLORS.textSecondary} />
+      <View style={styles.container}>
+        <View style={[styles.header, { height: HEADER_EXPANDED_HEIGHT + insets.top, paddingTop: insets.top, backgroundColor: COLORS.header }]}>
+          <View style={styles.navBar}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
+              <Ionicons name="chevron-back" size={24} color={COLORS.textMain} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.expandedContent}>
+            <View style={styles.headerTop}>
+              <Skeleton width={64} height={64} borderRadius={12} />
+              <View style={styles.headerInfo}>
+                <Skeleton width={60} height={12} />
+                <Skeleton width={150} height={28} style={{ marginTop: 8 }} />
+                <Skeleton width={120} height={14} style={{ marginTop: 8 }} />
+              </View>
+            </View>
+          </View>
+        </View>
+        <ScrollView style={{ marginTop: HEADER_EXPANDED_HEIGHT + insets.top + 20 }} contentContainerStyle={{ padding: 16 }}>
+          <Skeleton width="100%" height={120} borderRadius={16} style={{ marginBottom: 24 }} />
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
+            <Skeleton width={(width - 44) / 2} height={150} borderRadius={12} />
+            <Skeleton width={(width - 44) / 2} height={150} borderRadius={12} />
+          </View>
+          <Skeleton width="100%" height={200} borderRadius={16} />
+        </ScrollView>
       </View>
+    );
+  }
+
+  if (overviewError) {
+    return (
+      <ErrorState 
+        message={overviewError instanceof Error ? overviewError.message : '无法获取球队详情'} 
+        onRetry={refetch} 
+      />
     );
   }
 
@@ -296,7 +331,6 @@ export default function TeamDetailScreen() {
 
   const renderRecentGamesSection = () => {
     if (!recentGames) return null;
-    // Backend returns { last5Games: [...], next3Games: [...] }
     const games = recentGames.last5Games || [];
     if (!games.length) return null;
 
@@ -308,7 +342,7 @@ export default function TeamDetailScreen() {
             const isHome = game.homeTeam?.abbreviation?.toLowerCase() === teamAbbr?.toLowerCase();
             const opponent = isHome ? game.awayTeam : game.homeTeam;
             const resultText = game.won ? 'W' : 'L';
-            const resultColor = game.won ? '#10b981' : '#ef4444';
+            const resultColor = game.won ? COLORS.win : COLORS.loss;
 
             return (
               <TouchableOpacity 
@@ -368,7 +402,6 @@ export default function TeamDetailScreen() {
   };
 
   const renderOverviewTab = () => {
-    // Backend returns { offense: { points, assists, fieldGoalPct }, defense: { rebounds, steals, blocks } }
     const offenseCats = [
       { label: '得分王', data: leaders?.offense?.points },
       { label: '助攻王', data: leaders?.offense?.assists },
@@ -454,8 +487,6 @@ export default function TeamDetailScreen() {
 
   const renderScheduleTab = () => {
     if (!scheduleData) return <ActivityIndicator size="small" color={COLORS.textSecondary} style={{marginTop: 40}} />;
-    
-    // Combine all pages of events
     const allEvents = scheduleData.pages.flatMap(page => page.data.events || []);
 
     return (
@@ -466,7 +497,6 @@ export default function TeamDetailScreen() {
           const homeTeam = competition?.competitors?.find((t: any) => t.homeAway === 'home');
           const awayTeam = competition?.competitors?.find((t: any) => t.homeAway === 'away');
           
-          // Determine if the current team won/lost if game is finished
           let resultText = '';
           let resultColor = COLORS.textSecondary;
           
@@ -480,7 +510,7 @@ export default function TeamDetailScreen() {
               const otherScore = parseInt(String(otherTeamCompetitor.score?.displayValue || otherTeamCompetitor.score || '0'), 10);
               const won = currentScore > otherScore;
               resultText = won ? 'W' : 'L';
-              resultColor = won ? '#10b981' : '#ef4444';
+              resultColor = won ? COLORS.win : COLORS.loss;
             }
           }
 
@@ -519,7 +549,6 @@ export default function TeamDetailScreen() {
           );
         })}
 
-        {/* Load More Button */}
         {hasNextPage && (
           <TouchableOpacity 
             style={styles.loadMoreButton} 
@@ -539,7 +568,6 @@ export default function TeamDetailScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Animated Header */}
       <Animated.View style={[styles.header, { height: headerHeight, paddingTop: insets.top, opacity: headerOpacity }]}>
         <View style={styles.navBar}>
           <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
@@ -554,7 +582,6 @@ export default function TeamDetailScreen() {
           <View style={styles.iconButton} />
         </View>
 
-        {/* Expanded Content */}
         <Animated.View style={[styles.expandedContent, { opacity: expandedOpacity }]}>
           <View style={styles.headerTop}>
             <Image source={getTeamImage(team.abbreviation)} style={styles.mainLogo} />
@@ -566,7 +593,6 @@ export default function TeamDetailScreen() {
           </View>
         </Animated.View>
 
-        {/* Tabs */}
         <View style={styles.tabsContainer}>
           <View style={styles.tabs}>
             <TouchableOpacity onPress={() => handleTabChange('overview')} style={styles.tab}>
@@ -650,6 +676,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    position: 'absolute',
+    left: 60,
+    right: 60,
+    top: 0,
+    height: 44,
   },
   compactLogo: {
     width: 24,
@@ -685,7 +716,7 @@ const styles = StyleSheet.create({
   teamNameMain: {
     color: COLORS.textMain,
     fontSize: 24,
-    fontWeight: '800',
+    fontWeight: '700',
     marginVertical: 2,
   },
   teamRecord: {

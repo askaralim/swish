@@ -10,7 +10,8 @@ import {
   Image,
   ScrollView, 
   Dimensions,
-  ActivityIndicator
+  ActivityIndicator,
+  Platform
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,6 +21,7 @@ import { getTeamImage } from '../src/utils/teamImages';
 import { COLORS } from '../src/constants/theme';
 import { AnimatedSection } from '../src/components/AnimatedSection';
 import { Skeleton } from '../src/components/Skeleton';
+import { ErrorState } from '../src/components/ErrorState';
 
 interface Game {
   gameId: string;
@@ -353,14 +355,10 @@ export default function GamesScreen() {
           ))}
         </View>
       ) : error ? (
-        <View style={styles.center}>
-          <Text style={styles.errorText}>
-            {error instanceof Error ? error.message : '加载失败'}
-          </Text>
-          <TouchableOpacity onPress={() => refetch()} style={styles.retryButton}>
-            <Text style={styles.retryText}>重试</Text>
-          </TouchableOpacity>
-        </View>
+        <ErrorState 
+          message={error instanceof Error ? error.message : '无法获取比赛数据'} 
+          onRetry={refetch} 
+        />
       ) : (
         <FlatList
           data={sortedGames}
@@ -519,7 +517,6 @@ const styles = StyleSheet.create({
   },
   teamName: {
     fontSize: 14,
-    fontWeight: '500',
     color: COLORS.textMain,
     textAlign: 'center',
     marginBottom: 2,
@@ -527,7 +524,6 @@ const styles = StyleSheet.create({
   recordText: {
     fontSize: 11,
     color: COLORS.textSecondary,
-    fontWeight: '500',
   },
   middleContainer: {
     flex: 1.2,
@@ -542,7 +538,7 @@ const styles = StyleSheet.create({
   },
   scoreText: {
     fontSize: 28,
-    fontWeight: '700',
+    fontWeight: '600',
     color: COLORS.textMain,
     width: 50,
     textAlign: 'center',
@@ -588,7 +584,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '600',
     color: COLORS.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,

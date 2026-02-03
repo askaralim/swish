@@ -5,7 +5,7 @@ export const COLORS = {
   header: '#121216',
   card: '#16161A',
   textMain: '#FFFFFF',
-  textSecondary: '#8e8e93',
+  textSecondary: '#71767a',
   accent: '#1d9bf0',
   divider: '#2c2c2e',
   win: '#10b981',

@@ -26,10 +26,12 @@ import {
 import { getTeamImage } from '../../src/utils/teamImages';
 import { COLORS, MOTION } from '../../src/constants/theme';
 import { AnimatedSection } from '../../src/components/AnimatedSection';
+import { Skeleton } from '../../src/components/Skeleton';
+import { ErrorState } from '../../src/components/ErrorState';
 
 const { width } = Dimensions.get('window');
 const HEADER_EXPANDED_HEIGHT = 220;
-const HEADER_COLLAPSED_HEIGHT = 100;
+const HEADER_COLLAPSED_HEIGHT = 110;
 
 export default function PlayerDetailScreen() {
   const { id: playerId } = useLocalSearchParams<{ id: string }>();
@@ -43,7 +45,7 @@ export default function PlayerDetailScreen() {
   const tabIndicatorPos = useRef(new Animated.Value(0)).current;
   const tabContentAnim = useRef(new Animated.Value(0)).current;
 
-  const { data: details, isLoading: isLoadingDetails } = useQuery({
+  const { data: details, isLoading: isLoadingDetails, error: detailsError, refetch } = useQuery({
     queryKey: ['playerDetails', playerId],
     queryFn: () => fetchPlayerDetails(playerId),
   });
@@ -125,9 +127,43 @@ export default function PlayerDetailScreen() {
 
   if (isLoadingDetails) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="small" color={COLORS.textSecondary} />
+      <View style={styles.container}>
+        <View style={[styles.header, { height: HEADER_EXPANDED_HEIGHT + insets.top, paddingTop: insets.top, backgroundColor: COLORS.header }]}>
+          <View style={styles.navBar}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
+              <Ionicons name="chevron-back" size={24} color={COLORS.textMain} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.expandedContent}>
+            <View style={styles.headerTop}>
+              <Skeleton width={100} height={100} borderRadius={50} />
+              <View style={styles.headerInfo}>
+                <Skeleton width={80} height={12} />
+                <Skeleton width={150} height={28} style={{ marginTop: 8 }} />
+                <Skeleton width={100} height={14} style={{ marginTop: 8 }} />
+              </View>
+            </View>
+          </View>
+        </View>
+        <ScrollView style={{ marginTop: HEADER_EXPANDED_HEIGHT + insets.top + 20 }} contentContainerStyle={{ padding: 16 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24 }}>
+            {[1, 2, 3, 4].map(i => (
+              <Skeleton key={i} width={(width - 64) / 4} height={60} borderRadius={12} />
+            ))}
+          </View>
+          <Skeleton width="100%" height={150} borderRadius={16} style={{ marginBottom: 24 }} />
+          <Skeleton width="100%" height={200} borderRadius={16} />
+        </ScrollView>
       </View>
+    );
+  }
+
+  if (detailsError) {
+    return (
+      <ErrorState 
+        message={detailsError instanceof Error ? detailsError.message : '无法获取球员详情'} 
+        onRetry={refetch} 
+      />
     );
   }
 
@@ -327,8 +363,6 @@ export default function PlayerDetailScreen() {
             <View style={styles.logCard}>
               {events.map((event: any, idx: number) => {
                 const isWin = event.gameResult === 'W';
-                // Find PTS, REB, AST indices from original names if possible, else use indices 0, 1, 2
-                // Based on playerService.js: points, totalRebounds, assists are first 3
                 const pts = event.stats[0];
                 const reb = event.stats[1];
                 const ast = event.stats[2];
@@ -350,15 +384,15 @@ export default function PlayerDetailScreen() {
                     <View style={styles.logRight}>
                       <View style={styles.logStatGroup}>
                         <Text style={styles.logStatValue}>{pts}</Text>
-                        <Text style={styles.logStatLabel}>PTS</Text>
+                        <Text style={styles.logStatLabel}>得分</Text>
                       </View>
                       <View style={styles.logStatGroup}>
                         <Text style={styles.logStatValue}>{reb}</Text>
-                        <Text style={styles.logStatLabel}>REB</Text>
+                        <Text style={styles.logStatLabel}>篮板</Text>
                       </View>
                       <View style={styles.logStatGroup}>
                         <Text style={styles.logStatValue}>{ast}</Text>
-                        <Text style={styles.logStatLabel}>AST</Text>
+                        <Text style={styles.logStatLabel}>助攻</Text>
                       </View>
                       <View style={[styles.logResult, { backgroundColor: isWin ? COLORS.win : COLORS.loss }]}>
                         <Text style={styles.logResultText}>{event.gameResult || '-'}</Text>
@@ -402,7 +436,7 @@ export default function PlayerDetailScreen() {
                 {details.team?.abbreviation && (
                   <Image source={getTeamImage(details.team.abbreviation)} style={styles.teamLogo} />
                 )}
-                <Text style={styles.teamName}>{details.team?.name || 'Free Agent'}</Text>
+                <Text style={styles.teamName}>{details.team?.cityZhCN} {details.team?.nameZhCN || 'Free Agent'}</Text>
               </View>
               <Text style={styles.playerNameMain}>{details.name}</Text>
               <Text style={styles.playerMeta}>
@@ -486,7 +520,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: COLORS.header,
-    zIndex: 10,
+    zIndex: 100,
     overflow: 'hidden',
   },
   navBar: {
@@ -505,14 +539,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   compactHeader: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    position: 'absolute',
-    left: 60,
-    right: 60,
-    height: 44, // Match navBar height
     justifyContent: 'center',
+    gap: 10,
   },
   compactPhoto: {
     width: 32,
@@ -526,7 +557,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   expandedContent: {
-    height: 120,
+    height: HEADER_EXPANDED_HEIGHT - 64, // Leave space for navBar
     paddingHorizontal: 20,
     justifyContent: 'center',
   },
@@ -569,7 +600,7 @@ const styles = StyleSheet.create({
   playerNameMain: {
     color: COLORS.textMain,
     fontSize: 28,
-    fontWeight: '800',
+    fontWeight: '700',
     letterSpacing: -0.5,
   },
   playerMeta: {

@@ -23,6 +23,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, MOTION } from '../src/constants/theme';
 import { AnimatedSection } from '../src/components/AnimatedSection';
 import { Skeleton } from '../src/components/Skeleton';
+import { ErrorState } from '../src/components/ErrorState';
 
 const { width } = Dimensions.get('window');
 
@@ -160,13 +161,10 @@ export default function PlayersStatsScreen() {
 
   if (error) {
     return (
-      <View style={styles.errorContainer}>
-        <Ionicons name="alert-circle-outline" size={48} color={COLORS.textSecondary} />
-        <Text style={styles.errorTitle}>数据加载失败</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
-          <Text style={styles.retryButtonText}>重试</Text>
-        </TouchableOpacity>
-      </View>
+      <ErrorState 
+        message={error instanceof Error ? error.message : '无法获取球员榜单'} 
+        onRetry={refetch} 
+      />
     );
   }
 
@@ -277,12 +275,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: COLORS.textMain,
     fontSize: 20,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   sectionDescription: {
     color: COLORS.textSecondary,
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '500',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -331,7 +329,7 @@ const styles = StyleSheet.create({
   playerName: {
     color: COLORS.textMain,
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   playerTeamRow: {
     flexDirection: 'row',
@@ -355,7 +353,7 @@ const styles = StyleSheet.create({
   statValueText: {
     color: COLORS.textMain,
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '700',
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   gpText: {

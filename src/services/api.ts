@@ -2,9 +2,9 @@
  * API Configuration
  */
 const API_BASE_URL = 
-  //__DEV__ ? 'http://192.168.0.100:3000'  // Local development
-  //: 'https://your-railway-app.up.railway.app';  // Production
-  'https://nba-stats-api-production.up.railway.app';  // Production
+  __DEV__ ? 'http://192.168.0.102:3000'  // Local development
+  : 'https://nba-stats-api-production.up.railway.app';  // Production
+  // 'https://nba-stats-api-production.up.railway.app';  // Production
 
 /**
  * Parse API response
