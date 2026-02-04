@@ -142,7 +142,7 @@ export default function NewsScreen() {
     );
   }
 
-  if (error) {
+  if (error && !isRefetching) {
     return (
       <ErrorState 
         message={error instanceof Error ? error.message : '无法获取新闻推送'} 

@@ -1,20 +1,45 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, focusManager, onlineManager } from '@tanstack/react-query';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../src/constants/theme';
+import { useEffect } from 'react';
+import { AppState, Platform, AppStateStatus } from 'react-native';
+import NetInfo from '@react-native-community/netinfo';
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
+      retry: 3, // Increase retries for unstable initial connections
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
       staleTime: 5000,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true, // Automatically refetch when network is back
     },
   },
 });
 
+// React Query Focus Manager for React Native
+function onAppStateChange(status: AppStateStatus) {
+  if (Platform.OS !== 'web') {
+    focusManager.setFocused(status === 'active');
+  }
+}
+
+// React Query Online Manager for React Native
+onlineManager.setEventListener((setOnline) => {
+  return NetInfo.addEventListener((state) => {
+    setOnline(!!state.isConnected);
+  });
+});
+
 export default function RootLayout() {
   const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', onAppStateChange);
+    return () => subscription.remove();
+  }, []);
   
   return (
     <QueryClientProvider client={queryClient}>

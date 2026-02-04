@@ -35,7 +35,7 @@ export default function PlayersStatsScreen() {
     position: 'all-positions',
   });
 
-  const { data, isLoading, error, refetch } = useQuery<PlayerStatsResponse>({
+  const { data, isLoading, error, refetch, isRefetching } = useQuery<PlayerStatsResponse>({
     queryKey: ['playerStats', filters.season, filters.position],
     queryFn: () => fetchPlayerStats({
       season: filters.season,
@@ -105,7 +105,7 @@ export default function PlayersStatsScreen() {
     const top9 = categoryData.players.slice(0, 9);
 
     return (
-      <AnimatedSection key={section.statName} index={index} visible={!isLoading}>
+      <AnimatedSection key={section.statName} index={index} visible={!isLoading && !isRefetching}>
         <View style={styles.statSection}>
           <LinearGradient
             colors={[section.color + '40', section.color + '10', COLORS.bg]}
@@ -130,7 +130,7 @@ export default function PlayersStatsScreen() {
     );
   };
 
-  if (isLoading) {
+  if (isLoading || (isRefetching && !data)) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.pageHeader}>
@@ -159,7 +159,7 @@ export default function PlayersStatsScreen() {
     );
   }
 
-  if (error) {
+  if (error && !isRefetching) {
     return (
       <ErrorState 
         message={error instanceof Error ? error.message : '无法获取球员榜单'} 

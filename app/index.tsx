@@ -115,6 +115,16 @@ export default function GamesScreen() {
   const { data, isLoading, error, refetch, isRefetching } = useQuery({
     queryKey: ['games', formatDateForAPI(selectedDate)],
     queryFn: () => fetchGames(selectedDate),
+    refetchInterval: (query) => {
+      const games = query.state.data?.games || [];
+      const hasLiveGames = games.some((g: any) => g.gameStatus === 2);
+      return hasLiveGames ? 15000 : false;
+    },
+    staleTime: (query) => {
+      const games = query.state.data?.games || [];
+      const hasLiveGames = games.some((g: any) => g.gameStatus === 2);
+      return hasLiveGames ? 0 : 5000;
+    },
   });
 
   useEffect(() => {
@@ -335,7 +345,7 @@ export default function GamesScreen() {
         </ScrollView>
       </View>
 
-      {isLoading && !isRefetching ? (
+      {(isLoading || (isRefetching && !data)) ? (
         <View style={styles.list}>
           {[1, 2, 3, 4].map((i) => (
             <View key={i} style={styles.skeletonCard}>
@@ -354,7 +364,7 @@ export default function GamesScreen() {
             </View>
           ))}
         </View>
-      ) : error ? (
+      ) : error && !isRefetching ? (
         <ErrorState 
           message={error instanceof Error ? error.message : '无法获取比赛数据'} 
           onRetry={refetch} 

@@ -14,13 +14,17 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.taklip.swish"
+      "bundleIdentifier": "com.taklip.swish",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
-      }
+      },
+      "package": "com.taklip.swish"
     },
     "web": {
       "bundler": "metro",
@@ -32,6 +36,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "b3670700-fd36-4a2f-8156-659bba5077ae"
+      }
+    },
+    "owner": "askar.alim"
   }
 }

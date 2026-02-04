@@ -18,7 +18,7 @@ export const ErrorState = ({
     <View style={styles.container}>
       <Ionicons name="alert-circle-outline" size={48} color={COLORS.textSecondary} style={styles.icon} />
       <Text style={styles.title}>{title}</Text>
-      <Text style={styles.message}>{message}</Text>
+      {/* <Text style={styles.message}>{message}</Text> */}
       <TouchableOpacity style={styles.retryButton} onPress={onRetry} activeOpacity={0.8}>
         <Text style={styles.retryText}>重试</Text>
       </TouchableOpacity>

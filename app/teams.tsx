@@ -153,7 +153,7 @@ export default function TeamsScreen() {
     );
   };
 
-  if (isLoading) {
+  if (isLoading || (isRefetching && !data)) {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
@@ -175,7 +175,7 @@ export default function TeamsScreen() {
     );
   }
 
-  if (error) {
+  if (error && !isRefetching) {
     return (
       <ErrorState 
         message={error instanceof Error ? error.message : '无法获取联盟排名'} 
