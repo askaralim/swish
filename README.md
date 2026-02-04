@@ -7,10 +7,12 @@ A premium, lightweight NBA statistics application for iOS, built with React Nati
 - **Dynamic Games Dashboard**: A polished "Apple Sports" style feed of today's games with real-time status, marquee game highlighting, and date navigation.
 - **Immersive Game Details**:
   - **Sticky Collapsing Header**: Smooth transitions between expanded scoreboard and compact tracking bar.
-  - **AI Game Summary**: Intelligence-driven match recaps with visual highlights.
+  - **Live Auto-Refresh**: Intelligent 10-second refresh cycles for live games to keep scores and clocks perfectly in sync.
+  - **AI Game Summary**: Intelligence-driven match recaps with visual highlights and real-time generation placeholders.
   - **Statistical Comparison**: Side-by-side efficiency metrics (FG%, 3P%, Points in Paint, etc.) with proportional comparison bars.
+  - **Pre-Game Context**: Detailed season series history and grouped team injury reports.
   - **Star of the Game**: MVP highlights with headshots and advanced impact scores.
-- **📸 Player Performance Cards**: A "killer feature" inspired by Real App. View a high-density performance card for any player in a live/finished game and save it as a high-quality PNG directly to your device's photo gallery.
+- **📸 Player Performance Cards**: A "killer feature" inspired by Real App. View a high-density performance card for any player in a live/finished game, preview the layout, and save it as a high-quality PNG directly to your device's photo gallery with a premium progress overlay.
 - **📰 NBA News Feed**: Stay updated with an infinite-scroll feed of the latest NBA news and social updates from top sources like Shams Charania.
 - **👥 Comprehensive Team & Player Details**:
   - **Team Profiles**: Full roster summaries, upcoming schedules, and recent game results.
@@ -20,6 +22,7 @@ A premium, lightweight NBA statistics application for iOS, built with React Nati
 - **Native Performance**: 
   - Zero-latency team logo loading via local asset bundling.
   - Fluid gesture-based navigation.
+  - **Network Resilience**: Integrated `NetInfo` for automatic data recovery the moment network access is granted.
   - Centralized **Motion System** for consistent durations, easing, and staggered entry animations.
   - Dark-first design consistent with iOS system aesthetics.
 
@@ -28,6 +31,7 @@ A premium, lightweight NBA statistics application for iOS, built with React Nati
 - **Framework**: [Expo SDK 54](https://expo.dev/) (React Native)
 - **Routing**: [Expo Router](https://docs.expo.dev/router/introduction/) (File-based navigation)
 - **State Management**: [@tanstack/react-query](https://tanstack.com/query/latest) (Data fetching & caching)
+- **Network Monitoring**: `@react-native-community/netinfo`
 - **Image Capture**: `react-native-view-shot`
 - **Device Integration**: `expo-media-library` for saving shared cards
 - **Visuals**: `expo-linear-gradient`, `Animated` API, `Ionicons`
@@ -61,7 +65,9 @@ swish/
 │   ├── teams.tsx       # Standings
 │   ├── players.tsx     # Stats Leaderboard
 │   ├── news.tsx        # News Feed
-│   ├── game/[id].tsx   # Game Detail
+│   ├── game/
+│   │   ├── [id].tsx    # Game Detail
+│   │   └── [id]/player/[playerId].tsx # Performance Card
 │   ├── team/[id].tsx   # Team Profile
 │   └── player/[id].tsx # Player Profile
 ├── src/                # Shared internal resources
@@ -82,7 +88,8 @@ swish/
 - [x] Phase 4: Player Profiles & Career Logs
 - [x] Phase 5: NBA News Feed Integration
 - [x] Phase 6: Shareable Player Performance Cards (Real App Style)
-- [ ] Phase 7: Search, Favorites & Personalization (Planned)
+- [x] Phase 7: App Store Readiness (Icons, Splash, Network Resilience)
+- [ ] Phase 8: Search, Favorites & Personalization (Planned)
 
 ---
 *Created by [Askar](https://github.com/askar) - 2026*
