@@ -83,7 +83,7 @@ export default function PlayersStatsScreen() {
             {player.teamLogo && (
               <Image source={{ uri: player.teamLogo }} style={styles.teamLogoSmall} />
             )}
-            <Text style={styles.teamNameSmall} numberOfLines={1}>{player.team}</Text>
+            <Text style={styles.teamNameSmall} numberOfLines={1}>{player.teamNameZhCN}</Text>
           </View>
         </View>
 

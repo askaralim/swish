@@ -14,6 +14,8 @@ export interface Player {
   id: string;
   name: string;
   team: string;
+  teamNameZhCN: string;
+  teamCityZhCN: string;
   teamLogo: string | null;
   headshot: string | null;
   position: string;

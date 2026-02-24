@@ -3,7 +3,7 @@
  */
 const API_BASE_URL = 
   __DEV__ ? 'http://192.168.0.102:3000'  // Local development
-  : 'https://railway.app';  // Production
+  : 'https://nba-stats-api-production.up.railway.app';  // Production
 
 /**
  * Parse API response

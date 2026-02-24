@@ -341,7 +341,7 @@ export default function TeamDetailScreen() {
           {games.map((game: any, idx: number) => {
             const isHome = game.homeTeam?.abbreviation?.toLowerCase() === teamAbbr?.toLowerCase();
             const opponent = isHome ? game.awayTeam : game.homeTeam;
-            const resultText = game.won ? 'W' : 'L';
+            const resultText = game.won ? '胜' : '负';
             const resultColor = game.won ? COLORS.win : COLORS.loss;
 
             return (
@@ -353,7 +353,7 @@ export default function TeamDetailScreen() {
                 <Text style={styles.recentGameDate}>{game.dateFormatted?.date || game.date}</Text>
                 <View style={styles.recentGameMatchup}>
                   <Image source={getTeamImage(opponent?.abbreviation)} style={styles.recentGameLogo} />
-                  <Text style={styles.recentGameOpponent}>{isHome ? 'vs' : '@'} {opponent?.abbreviation}</Text>
+                  <Text style={styles.recentGameOpponent}>{isHome ? 'vs' : '@'} {opponent?.nameZhCN}</Text>
                 </View>
                 <Text style={[styles.recentGameResult, { color: resultColor }]}>
                   {resultText} {game.awayTeam?.score}-{game.homeTeam?.score}
@@ -388,7 +388,7 @@ export default function TeamDetailScreen() {
                 <Text style={styles.recentGameDate}>{game.dateFormatted?.date || game.date}</Text>
                 <View style={styles.recentGameMatchup}>
                   <Image source={getTeamImage(opponent?.abbreviation)} style={styles.recentGameLogo} />
-                  <Text style={styles.recentGameOpponent}>{isHome ? 'vs' : '@'} {opponent?.abbreviation}</Text>
+                  <Text style={styles.recentGameOpponent}>{isHome ? 'vs' : '@'} {opponent?.nameZhCN}</Text>
                 </View>
                 <Text style={styles.recentGameTime}>
                   {game.date ? new Date(game.date).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '-'}

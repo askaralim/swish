@@ -19,6 +19,7 @@ A premium, lightweight NBA statistics application for iOS, built with React Nati
   - **Player Profiles**: Deep-dives into career statistics, biographical info, and historical game logs.
 - **📊 Top Players Leaderboard**: Quickly view league leaders across various statistical categories (Points, Rebounds, Assists, etc.) with rank badges and team context.
 - **Conference Standings**: Fast, categorized rankings for East and West conferences with playoff seeding badges.
+- **ℹ️ About Screen**: Displays app version, developer credits, legal links (Privacy Policy, Terms of Service), and data sources.
 - **Native Performance**: 
   - Zero-latency team logo loading via local asset bundling.
   - Fluid gesture-based navigation.
@@ -60,16 +61,19 @@ npx expo start -- --clear
 
 ```text
 swish/
-├── app/                # Expo Router directory (Routes only)
-│   ├── index.tsx       # Games feed (Home)
-│   ├── teams.tsx       # Standings
-│   ├── players.tsx     # Stats Leaderboard
-│   ├── news.tsx        # News Feed
-│   ├── game/
-│   │   ├── [id].tsx    # Game Detail
-│   │   └── [id]/player/[playerId].tsx # Performance Card
-│   ├── team/[id].tsx   # Team Profile
-│   └── player/[id].tsx # Player Profile
+├── app/                # Expo Router root Stack navigator
+│   ├── _layout.tsx     # Root Stack Navigator (defines main navigation flow)
+│   ├── (tabs)/         # Group for tab-based screens
+│   │   ├── _layout.tsx # Tabs Navigator (defines bottom tab bar)
+│   │   ├── index.tsx   # Games feed (Home)
+│   │   ├── teams.tsx   # Standings
+│   │   ├── players.tsx # Stats Leaderboard
+│   │   ├── news.tsx    # News Feed (hidden in v1)
+│   │   └── about.tsx   # About Screen
+│   ├── game/[id].tsx   # Game Detail (direct child of root Stack)
+│   ├── game/[id]/player/[playerId].tsx # Performance Card (direct child of root Stack)
+│   ├── team/[id].tsx   # Team Profile (direct child of root Stack)
+│   └── player/[id].tsx # Player Profile (direct child of root Stack)
 ├── src/                # Shared internal resources
 │   ├── components/     # Reusable UI (AnimatedSection, etc.)
 │   ├── services/       # API integration & data parsing

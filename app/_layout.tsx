@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider, focusManager, onlineManager } from '@tanstack/react-query';
-import { Tabs } from 'expo-router';
+import { Tabs, Stack } from 'expo-router'; // Import Stack for hidden detail screens
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../src/constants/theme';
@@ -10,23 +10,21 @@ import NetInfo from '@react-native-community/netinfo';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 3, // Increase retries for unstable initial connections
+      retry: 3,
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
       staleTime: 5000,
       refetchOnWindowFocus: true,
-      refetchOnReconnect: true, // Automatically refetch when network is back
+      refetchOnReconnect: true,
     },
   },
 });
 
-// React Query Focus Manager for React Native
 function onAppStateChange(status: AppStateStatus) {
   if (Platform.OS !== 'web') {
     focusManager.setFocused(status === 'active');
   }
 }
 
-// React Query Online Manager for React Native
 onlineManager.setEventListener((setOnline) => {
   return NetInfo.addEventListener((state) => {
     setOnline(!!state.isConnected);
@@ -43,12 +41,21 @@ export default function RootLayout() {
   
   return (
     <QueryClientProvider client={queryClient}>
+      {/* 
+        This is a common pattern for "tabs-first" apps with Expo Router.
+        The Tabs component effectively acts as the root of the app, and any
+        routes that should appear "over" the tabs (like detail screens)
+        will be automatically pushed onto a stack managed by Expo Router.
+        
+        We also explicitly include the detail screens here with href: null
+        to ensure they are recognized by the router and can be navigated to,
+        but don't appear as tabs.
+      */}
       <Tabs
         screenOptions={{
           headerShown: false,
           tabBarActiveTintColor: COLORS.accent,
           tabBarInactiveTintColor: '#71767a',
-          sceneContainerStyle: { backgroundColor: COLORS.bg },
           tabBarStyle: {
             backgroundColor: '#000000',
             borderTopColor: '#2f3336',
@@ -91,36 +98,51 @@ export default function RootLayout() {
           }}
         />
         <Tabs.Screen
+          name="about"
+          options={{
+            title: '关于',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="information-circle-outline" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
           name="news"
           options={{
             title: '新闻',
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="newspaper-outline" size={size} color={color} />
             ),
+            href: null, // Temporarily hide this tab to avoid legal issues in v1
           }}
         />
+        {/* Detail screens must be defined here with href: null */}
         <Tabs.Screen
           name="game/[id]"
           options={{
             href: null,
+            // presentation: 'modal' // Can uncomment if you want modal presentation for detail
           }}
         />
         <Tabs.Screen
           name="player/[id]"
           options={{
             href: null,
+            // presentation: 'modal'
           }}
         />
         <Tabs.Screen
           name="team/[id]"
           options={{
             href: null,
+            // presentation: 'modal'
           }}
         />
         <Tabs.Screen
           name="game/[id]/player/[playerId]"
           options={{
             href: null,
+            // presentation: 'modal'
           }}
         />
       </Tabs>

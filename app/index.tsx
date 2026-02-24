@@ -34,6 +34,7 @@ interface Game {
     relative?: string;
   };
   period?: number;
+  gameClock?: string; // Add gameClock
   isOvertime?: boolean;
   isClosest?: boolean;
   isMarquee?: boolean;
@@ -112,6 +113,7 @@ export default function GamesScreen() {
     }
   }, [scrollViewWidth]);
 
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const { data, isLoading, error, refetch, isRefetching } = useQuery({
     queryKey: ['games', formatDateForAPI(selectedDate)],
     queryFn: () => fetchGames(selectedDate),
@@ -126,6 +128,12 @@ export default function GamesScreen() {
       return hasLiveGames ? 0 : 5000;
     },
   });
+
+  const onManualRefresh = async () => {
+    setIsManualRefreshing(true);
+    await refetch();
+    setIsManualRefreshing(false);
+  };
 
   useEffect(() => {
     if (!isLoading && data) {
@@ -197,7 +205,7 @@ export default function GamesScreen() {
       if (isFinished) return '已结束';
       if (isLive) return '直播中';
       if (isPostponed) return '延期';
-      if (isScheduled) return '未开始';
+      if (isScheduled) return '未开赛';
       return item.gameStatusText;
     };
 
@@ -240,7 +248,7 @@ export default function GamesScreen() {
                 <View style={styles.upcomingBox}>
                   <Text style={styles.upcomingTime}>{item.gameEtFormatted?.time || '待定'}</Text>
                   <View style={styles.prematchBadge}>
-                    <Text style={styles.prematchText}>赛前</Text>
+                    <Text style={styles.prematchText}>未开赛</Text>
                   </View>
                 </View>
               ) : (
@@ -279,6 +287,11 @@ export default function GamesScreen() {
                   ]}>
                     {item.isOvertime ? '加时赛' : getStatusText()}
                   </Text>
+                  {isLive && item.period && item.gameClock && (
+                    <Text style={[styles.statusText, styles.liveText]}>
+                      · {item.period > 4 ? `OT${item.period - 4}` : `Q${item.period}`} {item.gameClock}
+                    </Text>
+                  )}
                 </View>
               )}
 
@@ -378,8 +391,8 @@ export default function GamesScreen() {
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl 
-              refreshing={isRefetching} 
-              onRefresh={refetch} 
+              refreshing={isManualRefreshing} 
+              onRefresh={onManualRefresh} 
               tintColor={COLORS.accent} 
               progressViewOffset={insets.top + 60}
             />

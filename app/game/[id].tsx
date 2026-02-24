@@ -183,6 +183,12 @@ export default function GameDetailScreen() {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<'game' | 'away' | 'home'>('game');
   const [isDataLoaded, setIsDataLoaded] = useState(false);
+
+  useEffect(() => {
+    setActiveTab('game'); // Reset active tab to 'game' when game ID changes
+    tabIndicatorPos.setValue(0); // Reset tab indicator position
+    tabContentAnim.setValue(0); // Reset tab content animation
+  }, [id]);
   
   const scrollY = useRef(new Animated.Value(0)).current;
   const headerOpacity = useRef(new Animated.Value(0)).current;
@@ -497,7 +503,7 @@ export default function GameDetailScreen() {
               {/* Group 1: Form & Efficiency */}
               <View style={styles.statsGroup}>
                 {renderInfoRow('近期战绩', getVal(away.statistics, 'Last Ten Games'), getVal(home.statistics, 'Last Ten Games'))}
-                {renderInfoRow('连胜/连败', getVal(away.statistics, 'streak'), getVal(home.statistics, 'streak'))}
+                {renderInfoRow('连胜/连败', getVal(away.statistics, 'streak').startsWith('W') ? getVal(away.statistics, 'streak').slice(1) + '连胜' : getVal(away.statistics, 'streak').slice(1) + '连败', getVal(home.statistics, 'streak').startsWith('W') ? getVal(home.statistics, 'streak').slice(1) + '连胜' : getVal(home.statistics, 'streak').slice(1) + '连败')}
               </View>
 
               <View style={styles.statsDivider} />
@@ -541,15 +547,15 @@ export default function GameDetailScreen() {
               <View key={idx} style={[styles.seriesRow, idx < game.seasonSeries.games.length - 1 && styles.seriesDivider]}>
                 <Text style={styles.seriesDate}>{g.dateFormatted.date}</Text>
                 <View style={styles.seriesContent}>
-                  <Text style={[styles.seriesTeam, g.awayTeam.winner && styles.boldText]}>
+                  <Text style={[styles.seriesTeam, g.winner === 'away' && styles.boldText]}>
                     {g.awayTeam.abbreviation} {g.awayTeam.score}
                   </Text>
                   <Text style={styles.seriesVs}>@</Text>
-                  <Text style={[styles.seriesTeam, g.homeTeam.winner && styles.boldText]}>
+                  <Text style={[styles.seriesTeam, g.winner === 'home' && styles.boldText]}>
                     {g.homeTeam.abbreviation} {g.homeTeam.score}
                   </Text>
                 </View>
-                <Text style={styles.seriesStatus}>{g.status === 3 ? '已结束' : '未开始'}</Text>
+                <Text style={styles.seriesStatus}>{g.isCompleted ? '已结束' : '未开赛'}</Text>
               </View>
             ))}
           </View>
@@ -887,7 +893,7 @@ export default function GameDetailScreen() {
             style={styles.playerPinnedColumn}
             onPress={() => navigateToPlayer(player.id)}
           >
-            <Image source={{ uri: `https://a.espncdn.com/i/headshots/nba/600/${player.id}.png` }} style={styles.playerAvatar} />
+            <Image source={{ uri: player.headshot }} style={styles.playerAvatar} />
             <View style={styles.playerNameContainer}>
               <Text style={styles.playerName} numberOfLines={1}>{player.name}</Text>
               <Text style={styles.playerPosition}>{player.position}</Text>
@@ -1137,7 +1143,7 @@ export default function GameDetailScreen() {
                 {game.gameStatus === 3 ? '已结束' : 
                  game.gameStatus === 2 ? '直播中' : 
                  game.gameStatus === 6 ? '延期' : 
-                 game.gameStatus === 1 ? '未开始' : 
+                 game.gameStatus === 1 ? '未开赛' : 
                  game.gameStatusText.toUpperCase()}
               </Text>
               {game.gameStatus === 2 && (
@@ -1174,12 +1180,12 @@ export default function GameDetailScreen() {
                 {game.gameStatus === 3 ? '已结束' : 
                  game.gameStatus === 2 ? '直播中' : 
                  game.gameStatus === 6 ? '延期' : 
-                 game.gameStatus === 1 ? '未开始' : 
+                 game.gameStatus === 1 ? '未开赛' : 
                  game.gameStatusText.toUpperCase()}
               </Text>
               {game.gameStatus === 2 && (
                 <Text style={styles.liveClockText}>
-                  {game.period > 4 ? `OT${game.period - 4}` : `Q${game.period}`} {game.gameClock}
+                  {game.period > 4 ? `OT${game.period - 4}` : `第${game.period}节`} {game.gameClock}
                 </Text>
               )}
             </View>
@@ -1694,7 +1700,7 @@ const styles = StyleSheet.create({
   seriesTeam: {
     color: COLORS.textMain,
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '500',
     width: 60,
     textAlign: 'center',
   },
@@ -1711,7 +1717,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   boldText: {
-    fontWeight: '800',
+    fontWeight: '900',
     color: COLORS.textMain,
   },
   // Injury Styles

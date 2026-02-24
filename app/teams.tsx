@@ -28,7 +28,9 @@ interface Team {
   id: string;
   uid: string;
   name: string;
+  nameZhCN: string;
   shortName: string;
+  cityZhCN: string;
   abbreviation: string;
   location: string;
   logo: string;
@@ -120,7 +122,7 @@ export default function TeamsScreen() {
           <Image source={logoSource} style={styles.teamLogo} resizeMode="contain" />
 
           <View style={styles.teamInfo}>
-            <Text style={styles.teamName} numberOfLines={1}>{team.shortName || team.name}</Text>
+            <Text style={styles.teamName} numberOfLines={1}>{team.nameZhCN}</Text>
             <View style={styles.recordRow}>
               <Text style={styles.winsLosses}>{team.wins}-{team.losses}</Text>
               <Text style={styles.dot}>·</Text>
@@ -143,7 +145,7 @@ export default function TeamsScreen() {
                   streakDisplay.startsWith('W') && styles.winStreak,
                   streakDisplay.startsWith('L') && styles.lossStreak
                 ]}>
-                  {streakDisplay}
+                  {streakDisplay.startsWith('W') ? streakDisplay.slice(1) + '连胜' : streakDisplay.slice(1) + '连败'}
                 </Text>
               </View>
             )}
