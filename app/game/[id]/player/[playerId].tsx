@@ -201,11 +201,15 @@ export default function PlayerGamePerformanceScreen() {
             {/* Game Result */}
             <View style={styles.gameInfo}>
               <Text style={styles.gameScore}>{playerStats.gameScore}</Text>
-              <Text style={styles.gameStatus}>{game?.gameStatusText}</Text>
+              <Text style={styles.gameStatus}>{game?.gameStatus === 3 ? '已结束' : game?.gameStatus === 2 ? '直播中' : game?.gameStatusText.toUpperCase()}</Text>
             </View>
 
             {/* Main Stats Grid */}
             <View style={styles.statsGrid}>
+            <View style={styles.statItem}>
+                <Text style={styles.statLabel}>时间</Text>
+                <Text style={styles.statValue}>{playerStats.stats.minutes}</Text>
+              </View>
               <View style={styles.statItem}>
                 <Text style={styles.statLabel}>得分</Text>
                 <Text style={styles.statValue}>{playerStats.stats.points}</Text>
@@ -255,8 +259,12 @@ export default function PlayerGamePerformanceScreen() {
                 <Text style={styles.shootingValue}>{playerStats.stats.freeThrows || '-'}</Text>
               </View>
               <View style={styles.shootingItem}>
-                <Text style={styles.shootingLabel}>分钟</Text>
-                <Text style={styles.shootingValue}>{playerStats.stats.minutes}</Text>
+                <Text style={styles.shootingLabel}>失误</Text>
+                <Text style={styles.shootingValue}>{playerStats.stats.turnovers || '-'}</Text>
+              </View>
+              <View style={styles.shootingItem}>
+                <Text style={styles.shootingLabel}>犯规</Text>
+                <Text style={styles.shootingValue}>{playerStats.stats.fouls || '-'}</Text>
               </View>
             </View>
 
