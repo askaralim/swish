@@ -98,22 +98,21 @@ export default function RootLayout() {
           }}
         />
         <Tabs.Screen
-          name="about"
-          options={{
-            title: '关于',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="information-circle-outline" size={size} color={color} />
-            ),
-          }}
-        />
-        <Tabs.Screen
           name="news"
           options={{
             title: '新闻',
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="newspaper-outline" size={size} color={color} />
             ),
-            href: null, // Temporarily hide this tab to avoid legal issues in v1
+          }}
+        />
+        <Tabs.Screen
+          name="about"
+          options={{
+            title: '关于',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="information-circle-outline" size={size} color={color} />
+            ),
           }}
         />
         {/* Detail screens must be defined here with href: null */}

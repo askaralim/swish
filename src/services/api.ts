@@ -213,3 +213,15 @@ export async function fetchNews(params: {
     limit
   }, true);
 }
+
+/**
+ * Fetch translated NBA news articles (v2 API)
+ */
+export async function fetchTranslatedNews(params: {
+  page?: number;
+  limit?: number;
+  sort?: string;
+} = {}) {
+  const { page = 1, limit = 20, sort = 'published_at:desc' } = params;
+  return apiGet('/api/v2/nba/translated-news', { page, limit, sort }, true);
+}

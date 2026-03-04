@@ -2,44 +2,72 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   StyleSheet,
   TouchableOpacity,
   Image,
   ActivityIndicator,
   RefreshControl,
-  Linking,
   useWindowDimensions,
-  Platform,
-  FlatList
+  FlatList,
 } from 'react-native';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { fetchNews } from '../src/services/api';
-import type { NewsResponse, Tweet } from '../src/types/news';
-import { COLORS, MOTION } from '../src/constants/theme';
+import { fetchTranslatedNews } from '../src/services/api'; // Changed import
+import { COLORS } from '../src/constants/theme';
 import { AnimatedSection } from '../src/components/AnimatedSection';
 import { Skeleton } from '../src/components/Skeleton';
 import { ErrorState } from '../src/components/ErrorState';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+// New interface for translated news articles
+interface NewsArticle {
+  id: string;
+  author?: string; // Added optional author
+  authorAvatar?: string; // Added optional authorAvatar
+  title: string;
+  content: string;
+  publishedAt: string; // ISO 8601 string
+  publishedTime: string; // e.g., "2小时前"
+  images: string[]; // Array of image URLs
+}
+
+interface TranslatedNewsResponse {
+  success: boolean;
+  data: {
+    articles: NewsArticle[];
+  };
+  meta: {
+    version: string;
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+      hasMore: boolean;
+      nextPage: number | null;
+      prevPage: number | null;
+    };
+  };
+  timestamp: string;
+}
 
 export default function NewsScreen() {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const imageWidth = width - 32; // padding 16 each side
 
-  const { 
-    data, 
-    isLoading, 
-    error, 
-    refetch, 
+  const {
+    data,
+    isLoading,
+    error,
+    refetch,
     isRefetching,
     fetchNextPage,
     hasNextPage,
-    isFetchingNextPage
-  } = useInfiniteQuery({
-    queryKey: ['news'],
-    queryFn: ({ pageParam = 1 }) => fetchNews({ page: pageParam, limit: 20 }),
-    getNextPageParam: (lastPage: any) => {
+    isFetchingNextPage,
+  } = useInfiniteQuery<TranslatedNewsResponse>({
+    queryKey: ['translatedNews'], // Changed queryKey
+    queryFn: ({ pageParam = 1 }) => fetchTranslatedNews({ page: pageParam, limit: 20 }), // Changed fetch function
+    getNextPageParam: (lastPage) => {
       const pagination = lastPage?.meta?.pagination;
       return pagination?.hasMore ? pagination.nextPage : undefined;
     },
@@ -50,73 +78,51 @@ export default function NewsScreen() {
     await refetch();
   };
 
-  const openLink = (url: string | null) => {
-    // Disabled for V1
-    // if (url) Linking.openURL(url);
-  };
-
-  const renderTweet = ({ item: tweet, index }: { item: Tweet, index: number }) => {
-    const displayTime = tweet.timestampFormatted?.display || tweet.timestamp;
-    const avatarLetter = tweet.authorHandle?.charAt(1) || tweet.author?.charAt(0) || '?';
+  const renderNewsArticle = ({ item: article, index }: { item: NewsArticle, index: number }) => {
+    const avatarLetter = article.author?.charAt(0) || '?';
 
     return (
-      <AnimatedSection key={tweet.id} index={index % 20} visible={true}>
-        <TouchableOpacity
-          style={styles.tweetCard}
-          onPress={() => tweet.link && openLink(tweet.link)}
-          activeOpacity={0.9}
-        >
-          <View style={styles.tweetRow}>
-            {/* Avatar */}
-            {tweet.avatar ? (
-              <Image
-                source={{ uri: tweet.avatar }}
-                style={styles.avatar}
-              />
+      <AnimatedSection key={article.id} index={index % 20} visible={true}>
+        <View style={styles.newsCard}>
+          <View style={styles.authorRow}>
+            {article.authorAvatar ? (
+              <Image source={{ uri: article.authorAvatar }} style={styles.avatar} />
             ) : (
               <View style={styles.avatarPlaceholder}>
                 <Text style={styles.avatarLetter}>{avatarLetter}</Text>
               </View>
             )}
-
-            {/* Content */}
-            <View style={styles.tweetContent}>
-              <View style={styles.authorRow}>
-                <Text style={styles.authorName} numberOfLines={1}>{tweet.author}</Text>
-                <Text style={styles.authorHandle} numberOfLines={1}> {tweet.authorHandle}</Text>
-                <Text style={styles.timestamp}> · {displayTime}</Text>
-              </View>
-
-              <Text style={styles.tweetText}>{tweet.text}</Text>
-
-              {/* Media */}
-              {tweet.images && tweet.images.length > 0 && (
-                <View style={styles.mediaContainer}>
-                  {tweet.images.map((imageUrl, idx) => {
-                    const fullUrl = tweet.imageLinks?.[idx] || imageUrl;
-                    return (
-                      <TouchableOpacity
-                        key={idx}
-                        onPress={() => openLink(fullUrl)}
-                        style={styles.mediaWrapper}
-                        activeOpacity={0.8}
-                      >
-                        <Image
-                          source={{ uri: imageUrl }}
-                          style={[styles.mediaImage, { width: imageWidth - 64, maxHeight: 400 }]}
-                          resizeMode="cover"
-                        />
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
-            </View>
+            {article.author && <Text style={styles.authorName}>{article.author}</Text>}
+            {article.publishedTime && <Text style={styles.publishedTime}> · {article.publishedTime}</Text>}
           </View>
-        </TouchableOpacity>
+
+          {article.images && article.images.length > 0 && (
+            <View style={styles.mediaContainer}>
+              {article.images.map((imageUrl, idx) => (
+                <View
+                  key={idx}
+                  style={styles.mediaWrapper}
+                >
+                  <Image
+                    source={{ uri: imageUrl }}
+                    style={[styles.mediaImage, { width: imageWidth - 32, maxHeight: 400 }]} // Adjusted width
+                    resizeMode="cover"
+                  />
+                </View>
+              ))}
+            </View>
+          )}
+
+          <View style={[styles.articleContent, {padding: 12}]}>
+            {article.title && <Text style={styles.articleTitle}>{article.title}</Text>}
+            <Text style={styles.articleText} numberOfLines={3} ellipsizeMode="tail">{article.content}</Text>
+          </View>
+        </View>
       </AnimatedSection>
     );
   };
+
+ 
 
   if (isLoading && !data) {
     return (
@@ -125,18 +131,9 @@ export default function NewsScreen() {
           <Skeleton width={120} height={32} />
           <Skeleton width={200} height={16} style={{ marginTop: 8 }} />
         </View>
-        <View style={styles.scrollContent}>
-          {[1, 2, 3].map((i) => (
-            <View key={i} style={styles.skeletonTweetCard}>
-              <View style={styles.skeletonTweetRow}>
-                <Skeleton width={40} height={40} borderRadius={20} />
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Skeleton width={150} height={14} />
-                  <Skeleton width="100%" height={60} style={{ marginTop: 12 }} />
-                </View>
-              </View>
-            </View>
-          ))}
+        <View style={styles.loadingContent}>
+          <ActivityIndicator size="large" color={COLORS.accent} />
+          <Text style={styles.loadingText}>正在加载新闻...</Text>
         </View>
       </View>
     );
@@ -144,27 +141,27 @@ export default function NewsScreen() {
 
   if (error && !isRefetching) {
     return (
-      <ErrorState 
-        message={error instanceof Error ? error.message : '无法获取新闻推送'} 
-        onRetry={refetch} 
+      <ErrorState
+        message={error instanceof Error ? error.message : '无法获取新闻'} // Updated error message
+        onRetry={refetch}
       />
     );
   }
 
-  const allTweets = data?.pages.flatMap(page => (page as any).data?.tweets || []) ?? [];
+  const allArticles = data?.pages.flatMap(page => (page as TranslatedNewsResponse).data?.articles || []) ?? [];
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>NBA News!</Text>
-        <Text style={styles.subtitle}>
-          来自 <Text style={styles.subtitleBold}>@ShamsCharania</Text> 等的最新推文
-        </Text>
+        <View>
+          <Text style={styles.title}>NBA 新闻</Text>
+          <Text style={styles.subtitle}>最新动态，尽在掌握</Text>
+        </View>
       </View>
 
       <FlatList
-        data={allTweets}
-        renderItem={renderTweet}
+        data={allArticles}
+        renderItem={renderNewsArticle}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -193,7 +190,7 @@ export default function NewsScreen() {
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyTitle}>暂无新闻</Text>
               <Text style={styles.emptyMessage}>
-                Twitter/X 可能阻止了数据抓取。请稍后再试。
+                目前没有可显示的新闻。请稍后再试。 {/* Updated empty message */}
               </Text>
               <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
                 <Text style={styles.retryText}>刷新</Text>
@@ -211,141 +208,99 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.bg,
   },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-    backgroundColor: COLORS.bg,
-  },
-  loadingText: {
-    color: COLORS.textSecondary,
-    marginTop: 12,
-    fontSize: 14,
-  },
-  errorTitle: {
-    color: COLORS.textMain,
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  errorMessage: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  retryButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    backgroundColor: COLORS.accent,
-    borderRadius: 12,
-  },
-  retryText: {
-    color: COLORS.textMain,
-    fontWeight: '600',
-    fontSize: 15,
-  },
   header: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: COLORS.bg,
   },
   title: {
     color: COLORS.textMain,
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
   subtitle: {
     color: COLORS.textSecondary,
-    fontSize: 14,
-    marginTop: 4,
-  },
-  subtitleBold: {
-    color: COLORS.textMain,
-    fontWeight: '600',
-  },
-  scrollView: {
-    flex: 1,
+    fontSize: 13,
+    marginTop: 2,
   },
   scrollContent: {
     paddingHorizontal: 16,
     paddingBottom: 32,
   },
-  tweetCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 0.5,
-    borderColor: COLORS.divider,
-  },
-  tweetRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 12,
-  },
-  avatarPlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.accent,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  avatarLetter: {
-    color: COLORS.textMain,
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  tweetContent: {
-    flex: 1,
-    minWidth: 0,
+  newsCard: {
+    backgroundColor: COLORS.cardSecondary,
+    borderRadius: 12,
+    marginBottom: 10,
+    overflow: 'hidden',
   },
   authorRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
-    flexWrap: 'wrap',
+    padding: 12,
+    paddingBottom: 0,
+  },
+  avatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    marginRight: 8,
+  },
+  avatarPlaceholder: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.accent,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  avatarLetter: {
+    color: COLORS.textMain,
+    fontSize: 14,
+    fontWeight: '600',
   },
   authorName: {
     color: COLORS.textMain,
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '600',
+    marginRight: 6,
   },
-  authorHandle: {
+  publishedTime: {
     color: COLORS.textSecondary,
-    fontSize: 13,
-    marginLeft: 4,
-  },
-  timestamp: {
-    color: COLORS.textSecondary,
-    fontSize: 13,
-  },
-  tweetText: {
-    color: COLORS.textMain,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 12,
   },
   mediaContainer: {
-    marginTop: 12,
-    gap: 8,
+    marginBottom: 8,
   },
   mediaWrapper: {
-    borderRadius: 12,
-    overflow: 'hidden',
     backgroundColor: '#1c1c1e',
   },
   mediaImage: {
-    height: 200,
+    height: 180,
     width: '100%',
+    borderRadius: 8,
+  },
+  footerLoader: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  skeletonNewsCard: {
+    backgroundColor: COLORS.cardSecondary,
+    borderRadius: 12,
+    marginBottom: 10,
+    padding: 12,
+  },
+  loadingContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: 100,
+  },
+  loadingText: {
+    color: COLORS.textSecondary,
+    marginTop: 12,
+    fontSize: 14,
   },
   emptyContainer: {
     flex: 1,
@@ -365,17 +320,28 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
   },
-  footerLoader: {
-    paddingVertical: 20,
-    alignItems: 'center',
+  retryButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: COLORS.accent,
+    borderRadius: 12,
   },
-  skeletonTweetCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
+  retryText: {
+    color: COLORS.textMain,
+    fontWeight: '600',
+    fontSize: 15,
   },
-  skeletonTweetRow: {
-    flexDirection: 'row',
+  articleContent: {
+    padding: 12,
   },
-});
+  articleTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.textMain,
+    marginBottom: 4,
+  },
+  articleText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
+  },});

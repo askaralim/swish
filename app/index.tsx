@@ -74,6 +74,7 @@ export default function GamesScreen() {
   const dateScrollRef = useRef<ScrollView>(null);
   const [scrollViewWidth, setScrollViewWidth] = useState(0);
   const todayIndex = 2;
+  const [selectedFilter, setSelectedFilter] = useState< 'isClosest' | 'isOvertime' | 'isMarquee' | null >(null);
 
   const dateOptions = useMemo(() => {
     const dates: Date[] = [];
@@ -145,12 +146,17 @@ export default function GamesScreen() {
 
   const sortedGames = useMemo(() => {
     const rawGames: Game[] = data?.games || [];
+
+    let filteredGames = rawGames;
+    if (selectedFilter) {
+      filteredGames = rawGames.filter(game => game[selectedFilter]);
+    }
     
-    return [...rawGames].sort((a, b) => {
+    return [...filteredGames].sort((a, b) => {
       const getPriority = (g: Game) => {
-        if (g.isMarquee) return 100;
-        if (g.isOvertime) return 90;
-        if (g.isClosest) return 80;
+        if (g.isMarquee && g.gameStatus === 2) return 100;
+        if (g.isOvertime && g.gameStatus === 2) return 90;
+        if (g.isClosest && g.gameStatus === 2) return 80;
         
         // Live games
         if (g.gameStatus === 2) return 70;
@@ -177,7 +183,7 @@ export default function GamesScreen() {
       // If priorities are equal, sort by time if possible
       return a.gameId.localeCompare(b.gameId);
     });
-  }, [data]);
+  }, [data, selectedFilter]);
 
   const formatDateLabel = (date: Date, index: number): string => {
     const today = getChineseDate();
@@ -193,6 +199,15 @@ export default function GamesScreen() {
     const month = date.getMonth() + 1;
     const day = date.getDate();
     return `${month}/${day}`;
+  };
+
+  const formatFullChineseDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const daysOfWeek = ['日', '一', '二', '三', '四', '五', '六'];
+    const dayOfWeek = daysOfWeek[date.getDay()];
+    return `${year}年${month}月${day}日星期${dayOfWeek}`;
   };
 
   const renderGame = ({ item, index }: { item: Game, index: number }) => {
@@ -356,6 +371,55 @@ export default function GamesScreen() {
             );
           })}
         </ScrollView>
+        <Text style={styles.fullDateText}>{formatFullChineseDate(selectedDate)}</Text>
+        <View style={styles.filterContainer}>
+          <Text style={styles.filterLabel}>筛选:</Text>
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              selectedFilter === 'isClosest' && styles.filterButtonActive,
+            ]}
+            onPress={() => setSelectedFilter(prev => (prev === 'isClosest' ? null : 'isClosest'))}
+            activeOpacity={0.7}
+          >
+            <Text style={[
+              styles.filterButtonText,
+              selectedFilter === 'isClosest' && styles.filterButtonTextActive,
+            ]}>
+              焦灼
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              selectedFilter === 'isOvertime' && styles.filterButtonActive,
+            ]}
+            onPress={() => setSelectedFilter(prev => (prev === 'isOvertime' ? null : 'isOvertime'))}
+            activeOpacity={0.7}
+          >
+            <Text style={[
+              styles.filterButtonText,
+              selectedFilter === 'isOvertime' && styles.filterButtonTextActive,
+            ]}>
+              加时
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              selectedFilter === 'isMarquee' && styles.filterButtonActive,
+            ]}
+            onPress={() => setSelectedFilter(prev => (prev === 'isMarquee' ? null : 'isMarquee'))}
+            activeOpacity={0.7}
+          >
+            <Text style={[
+              styles.filterButtonText,
+              selectedFilter === 'isMarquee' && styles.filterButtonTextActive,
+            ]}>
+              热门
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {(isLoading || (isRefetching && !data)) ? (
@@ -660,6 +724,42 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textAlign: 'center',
   },
+  filterContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderTopWidth: 0.5,
+    borderTopColor: COLORS.divider,
+    backgroundColor: COLORS.header,
+  },
+  filterLabel: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    marginRight: 8,
+    fontWeight: '500',
+  },
+  filterButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+    marginRight: 8,
+    backgroundColor: COLORS.card,
+  },
+  filterButtonActive: {
+    borderColor: COLORS.accent,
+    backgroundColor: COLORS.accentBackground,
+  },
+  filterButtonText: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+  },
+  filterButtonTextActive: {
+    color: COLORS.accent,
+  },
   retryButton: {
     paddingHorizontal: 24,
     paddingVertical: 12,
@@ -670,5 +770,12 @@ const styles = StyleSheet.create({
     color: COLORS.textMain,
     fontSize: 16,
     fontWeight: '600',
+  },
+  fullDateText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.textMain,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
   },
 });
