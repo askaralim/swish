@@ -1,27 +1,24 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { 
   View, 
   Text, 
-  FlatList, 
   StyleSheet, 
   RefreshControl, 
   TouchableOpacity, 
   Image,
   ScrollView, 
-  Dimensions,
-  ActivityIndicator,
-  Platform
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, Link } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Haptics from 'expo-haptics';
-import { fetchGames, formatDateForAPI, getChineseDate } from '../src/services/api';
+import { fetchGames, fetchTodayTopPerformers, fetchSeasonLeaders, formatDateForAPI, getChineseDate } from '../src/services/api';
 import { getTeamImage } from '../src/utils/teamImages';
 import { COLORS } from '../src/constants/theme';
 import { AnimatedSection } from '../src/components/AnimatedSection';
 import { Skeleton } from '../src/components/Skeleton';
 import { ErrorState } from '../src/components/ErrorState';
+import { HomePlayerCard, TopPerformer } from '../src/components/HomePlayerCard';
+import { Ionicons } from '@expo/vector-icons';
 
 interface Game {
   gameId: string;
@@ -34,7 +31,7 @@ interface Game {
     relative?: string;
   };
   period?: number;
-  gameClock?: string; // Add gameClock
+  gameClock?: string;
   isOvertime?: boolean;
   isClosest?: boolean;
   isMarquee?: boolean;
@@ -64,141 +61,116 @@ interface Game {
   };
 }
 
-// --- Games Screen ---
 
-export default function GamesScreen() {
+export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [selectedDate, setSelectedDate] = useState<Date>(getChineseDate());
+  const selectedDate = getChineseDate();
   const [isDataLoaded, setIsDataLoaded] = useState(false);
-  const dateScrollRef = useRef<ScrollView>(null);
-  const [scrollViewWidth, setScrollViewWidth] = useState(0);
-  const todayIndex = 2;
-  const [selectedFilter, setSelectedFilter] = useState< 'isClosest' | 'isOvertime' | 'isMarquee' | null >(null);
 
-  const dateOptions = useMemo(() => {
-    const dates: Date[] = [];
-    const today = getChineseDate();
-    
-    // Yesterday
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 2);
-    dates.push(yesterday);
-    
-    // Another Yesterday (as requested in history)
-    const yesterday2 = new Date(today);
-    yesterday2.setDate(yesterday2.getDate() - 1);
-    dates.push(yesterday2);
-    
-    // Today
-    dates.push(today);
-    
-    // Tomorrow + Next 3 days
-    for (let i = 1; i <= 4; i++) {
-      const date = new Date(today);
-      date.setDate(date.getDate() + i);
-      dates.push(date);
-    }
-    return dates;
-  }, []);
+  // 1. Fetch Today's Top Performers
+  const { data: topPerformersData, isLoading: isLoadingPerformers, refetch: refetchPerformers } = useQuery({
+    queryKey: ['todayTopPerformers', formatDateForAPI(selectedDate)],
+    queryFn: () => fetchTodayTopPerformers(selectedDate),
+    staleTime: 5 * 60 * 1000,
+  });
 
-  useEffect(() => {
-    if (scrollViewWidth > 0 && dateScrollRef.current) {
-      const buttonWidth = 76;
-      const scrollPosition = (todayIndex * buttonWidth) - (scrollViewWidth / 2) + (buttonWidth / 2);
-      
-      dateScrollRef.current.scrollTo({
-        x: Math.max(0, scrollPosition),
-        animated: false,
-      });
-    }
-  }, [scrollViewWidth]);
+  // 2. Fetch Season Leaders
+  const { data: seasonLeadersData, isLoading: isLoadingSeasonLeaders } = useQuery({
+    queryKey: ['seasonLeaders'],
+    queryFn: fetchSeasonLeaders,
+    staleTime: 60 * 60 * 1000,
+  });
 
-  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
-  const { data, isLoading, error, refetch, isRefetching } = useQuery({
-    queryKey: ['games', formatDateForAPI(selectedDate)],
-    queryFn: () => fetchGames(selectedDate),
+  // 3. Fetch Games (Featured)
+  const { data: gamesResponse, isLoading: isLoadingGames, error: gamesError, refetch: refetchGames, isRefetching: isRefetchingGames } = useQuery({
+    queryKey: ['games', formatDateForAPI(selectedDate), 'featured'],
+    queryFn: () => fetchGames(selectedDate, true),
     refetchInterval: (query) => {
-      const games = query.state.data?.games || [];
+      const data = query.state.data as any;
+      const games = data?.games || [];
       const hasLiveGames = games.some((g: any) => g.gameStatus === 2);
       return hasLiveGames ? 15000 : false;
-    },
-    staleTime: (query) => {
-      const games = query.state.data?.games || [];
-      const hasLiveGames = games.some((g: any) => g.gameStatus === 2);
-      return hasLiveGames ? 0 : 5000;
     },
   });
 
   const onManualRefresh = async () => {
-    setIsManualRefreshing(true);
-    await refetch();
-    setIsManualRefreshing(false);
+    await Promise.all([refetchPerformers(), refetchGames()]);
   };
 
   useEffect(() => {
-    if (!isLoading && data) {
+    if (!isLoadingGames && gamesResponse) {
       setIsDataLoaded(true);
-    } else {
-      setIsDataLoaded(false);
     }
-  }, [isLoading, data, selectedDate]);
+  }, [isLoadingGames, gamesResponse]);
 
-  const sortedGames = useMemo(() => {
-    const rawGames: Game[] = data?.games || [];
-
-    let filteredGames = rawGames;
-    if (selectedFilter) {
-      filteredGames = rawGames.filter(game => game[selectedFilter]);
-    }
+  // Process Top Performers
+  const topPerformers = useMemo(() => {
+    if (!topPerformersData) return { points: [], rebounds: [], assists: [] };
     
-    return [...filteredGames].sort((a, b) => {
-      const getPriority = (g: Game) => {
-        if (g.isMarquee && g.gameStatus === 2) return 100;
-        if (g.isOvertime && g.gameStatus === 2) return 90;
-        if (g.isClosest && g.gameStatus === 2) return 80;
-        
-        // Live games
-        if (g.gameStatus === 2) return 70;
-        
-        // Scheduled games
-        if (g.gameStatus === 1) return 60;
-        
-        // Postponed
-        if (g.gameStatus === 6) return 50;
-        
-        // Finished
-        if (g.gameStatus === 3) return 40;
-        
-        return 0;
-      };
+    const processCategory = (list: any[], type: TopPerformer['statType']) => {
+      if (!list) return [];
+      return list.slice(0, 5).map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        teamAbbreviation: p.teamAbbreviation,
+        teamNameZhCN: p.teamNameZhCN,
+        competitionId: p.competitionId,
+        headshot: p.headshot,
+        value: p.value,
+        statType: type,
+      }));
+    };
 
-      const priorityA = getPriority(a);
-      const priorityB = getPriority(b);
+    return {
+      points: processCategory(topPerformersData.points, 'points'),
+      rebounds: processCategory(topPerformersData.rebounds, 'rebounds'),
+      assists: processCategory(topPerformersData.assists, 'assists'),
+    };
+  }, [topPerformersData]);
 
-      if (priorityA !== priorityB) {
-        return priorityB - priorityA;
+  // Process Season Leaders
+  const seasonLeaders = useMemo(() => {
+    if (!seasonLeadersData) return { points: [], rebounds: [], assists: [] };
+
+    const processCategory = (list: any[], type: TopPerformer['statType']) => {
+      if (!list) return [];
+      return list.slice(0, 5).map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        teamAbbreviation: p.teamAbbreviation,
+        teamNameZhCN: p.teamNameZhCN,
+        competitionId: p.competitionId,
+        headshot: p.headshot,
+        value: p.value,
+        statType: type,
+      }));
+    };
+
+    return {
+      points: processCategory(seasonLeadersData.points, 'points'),
+      rebounds: processCategory(seasonLeadersData.rebounds, 'rebounds'),
+      assists: processCategory(seasonLeadersData.assists, 'assists'),
+    };
+  }, [seasonLeadersData]);
+
+  const handleCompare = (playerId: string, statType: TopPerformer['statType']) => {
+    let seasonLeaderId = null;
+    if (seasonLeadersData) {
+      const leadersList = seasonLeadersData[statType];
+      if (leadersList && leadersList.length > 0) {
+        seasonLeaderId = leadersList[0].id;
       }
+    }
 
-      // If priorities are equal, sort by time if possible
-      return a.gameId.localeCompare(b.gameId);
-    });
-  }, [data, selectedFilter]);
-
-  const formatDateLabel = (date: Date, index: number): string => {
-    const today = getChineseDate();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    if (date.getTime() === today.getTime()) return '今天';
-    if (date.getTime() === tomorrow.getTime()) return '明天';
-    if (date.getTime() === yesterday.getTime()) return '昨天';
-    
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    return `${month}/${day}`;
+    if (seasonLeaderId) {
+      if (seasonLeaderId === playerId && seasonLeadersData?.[statType]?.length > 1) {
+        seasonLeaderId = seasonLeadersData[statType][1].id;
+      }
+      router.push(`/playerComparison/${playerId}/${seasonLeaderId}`);
+    } else {
+      router.push(`/player/${playerId}`);
+    }
   };
 
   const formatFullChineseDate = (date: Date): string => {
@@ -207,7 +179,7 @@ export default function GamesScreen() {
     const day = date.getDate();
     const daysOfWeek = ['日', '一', '二', '三', '四', '五', '六'];
     const dayOfWeek = daysOfWeek[date.getDay()];
-    return `${year}年${month}月${day}日星期${dayOfWeek}`;
+    return `${year}年${month}月${day}日 星期${dayOfWeek}`;
   };
 
   const renderGame = ({ item, index }: { item: Game, index: number }) => {
@@ -231,7 +203,7 @@ export default function GamesScreen() {
     const homeWin = isFinished && (item.homeTeam.score ?? 0) > (item.awayTeam.score ?? 0);
 
     return (
-      <AnimatedSection index={index} visible={isDataLoaded}>
+      <AnimatedSection key={item.gameId} index={index} visible={isDataLoaded}>
         <TouchableOpacity
           style={[
             styles.gameCard, 
@@ -331,143 +303,151 @@ export default function GamesScreen() {
     );
   };
 
+  const renderPerformerSection = (title: string, data: TopPerformer[], showCompare: boolean = true) => {
+    if (!data || data.length === 0) return null;
+    return (
+      <View style={{ marginBottom: 24 }}>
+        <Text style={styles.performerSectionTitle}>{title}</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.performerList}>
+          {data.map((performer) => (
+            <HomePlayerCard 
+              key={performer.id} 
+              performer={performer} 
+              onCompare={handleCompare}
+              showCompare={showCompare}
+              onPress={(id) => {
+                if (showCompare && performer.competitionId) {
+                  router.push(`/game/${performer.competitionId}`);
+                } else {
+                  router.push(`/player/${id}`);
+                }
+              }}
+            />
+          ))}
+        </ScrollView>
+      </View>
+    );
+  };
+
+  // Determine which games to show
+  const allGames = gamesResponse?.games || [];
+  const featuredGamesRaw = gamesResponse?.featured || [];
+  // Fallback: If no featured games, show top 3 from all games
+  const gamesToShow = featuredGamesRaw.length > 0 ? featuredGamesRaw : allGames.slice(0, 3);
+  
+  const totalGamesCount = gamesResponse?.totalGames || 0;
+  const featuredCount = featuredGamesRaw.length;
+
+  const hasTopPerformers = topPerformers.points.length > 0 || topPerformers.rebounds.length > 0 || topPerformers.assists.length > 0;
+
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top }]}>
-        <ScrollView
-          ref={dateScrollRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.dateScrollView}
-          contentContainerStyle={styles.dateScrollContent}
-          onLayout={(event) => {
-            const { width } = event.nativeEvent.layout;
-            if (width > 0) setScrollViewWidth(width);
-          }}
-        >
-          {dateOptions.map((date, index) => {
-            const isSelected = date.getTime() === selectedDate.getTime();
-            const isTodayDate = date.getTime() === getChineseDate().getTime();
-            return (
-              <TouchableOpacity
-                key={index}
-                style={[styles.dateButton, isSelected && styles.dateButtonActive]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setSelectedDate(date);
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={[
-                  styles.dateButtonText,
-                  isSelected && styles.dateButtonTextActive,
-                  isTodayDate && !isSelected && styles.dateButtonTextToday
-                ]}>
-                  {formatDateLabel(date, index)}
-                </Text>
-                {isSelected && <View style={styles.activeDot} />}
-                {isTodayDate && !isSelected && <View style={styles.todayIndicator} />}
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-        <Text style={styles.fullDateText}>{formatFullChineseDate(selectedDate)}</Text>
-        <View style={styles.filterContainer}>
-          <Text style={styles.filterLabel}>筛选:</Text>
-          <TouchableOpacity
-            style={[
-              styles.filterButton,
-              selectedFilter === 'isClosest' && styles.filterButtonActive,
-            ]}
-            onPress={() => setSelectedFilter(prev => (prev === 'isClosest' ? null : 'isClosest'))}
-            activeOpacity={0.7}
-          >
-            <Text style={[
-              styles.filterButtonText,
-              selectedFilter === 'isClosest' && styles.filterButtonTextActive,
-            ]}>
-              焦灼
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.filterButton,
-              selectedFilter === 'isOvertime' && styles.filterButtonActive,
-            ]}
-            onPress={() => setSelectedFilter(prev => (prev === 'isOvertime' ? null : 'isOvertime'))}
-            activeOpacity={0.7}
-          >
-            <Text style={[
-              styles.filterButtonText,
-              selectedFilter === 'isOvertime' && styles.filterButtonTextActive,
-            ]}>
-              加时
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.filterButton,
-              selectedFilter === 'isMarquee' && styles.filterButtonActive,
-            ]}
-            onPress={() => setSelectedFilter(prev => (prev === 'isMarquee' ? null : 'isMarquee'))}
-            activeOpacity={0.7}
-          >
-            <Text style={[
-              styles.filterButtonText,
-              selectedFilter === 'isMarquee' && styles.filterButtonTextActive,
-            ]}>
-              热门
-            </Text>
-          </TouchableOpacity>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingTop: insets.top, paddingBottom: insets.bottom + 20 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetchingGames}
+            onRefresh={onManualRefresh}
+            tintColor={COLORS.accent}
+          />
+        }
+      >
+        {/* Header */}
+        <View style={styles.headerContainer}>
+          <Text style={styles.headerAppName}>唰！Swish</Text>
+          <Text style={styles.headerDate}>{formatFullChineseDate(selectedDate)}</Text>
         </View>
-      </View>
 
-      {(isLoading || (isRefetching && !data)) ? (
-        <View style={styles.list}>
-          {[1, 2, 3, 4].map((i) => (
-            <View key={i} style={styles.skeletonCard}>
-              <View style={styles.skeletonSide}>
-                <Skeleton width={44} height={44} borderRadius={22} />
-                <Skeleton width={60} height={12} style={{ marginTop: 8 }} />
-              </View>
-              <View style={styles.skeletonMiddle}>
-                <Skeleton width={80} height={24} borderRadius={12} />
-                <Skeleton width={40} height={10} style={{ marginTop: 8 }} />
-              </View>
-              <View style={styles.skeletonSide}>
-                <Skeleton width={44} height={44} borderRadius={22} />
-                <Skeleton width={60} height={12} style={{ marginTop: 8 }} />
-              </View>
+        {/* Top Performers Sections */}
+        {isLoadingPerformers ? (
+          <View style={{ padding: 16 }}>
+             <Skeleton width={150} height={20} marginBottom={12} />
+             <View style={{ flexDirection: 'row' }}>
+               <Skeleton width={160} height={140} borderRadius={16} marginRight={12} />
+               <Skeleton width={160} height={140} borderRadius={16} />
+             </View>
+          </View>
+        ) : hasTopPerformers ? (
+          <>
+            <View style={styles.performerSection}>
+              <Text style={styles.performerSectionHeader}>今日 TOP3!</Text>
             </View>
-          ))}
+            {renderPerformerSection('得分', topPerformers.points)}
+            {renderPerformerSection('篮板', topPerformers.rebounds)}
+            {renderPerformerSection('助攻', topPerformers.assists)}
+          </>
+        ) : null}
+
+        {/* Season Leaders Sections */}
+        {isLoadingSeasonLeaders ? (
+          <View style={{ padding: 16 }}>
+             <Skeleton width={150} height={20} marginBottom={12} />
+             <View style={{ flexDirection: 'row' }}>
+               <Skeleton width={160} height={140} borderRadius={16} marginRight={12} />
+               <Skeleton width={160} height={140} borderRadius={16} />
+             </View>
+          </View>
+        ) : (
+          <>
+            <View style={styles.performerSection}>
+              <Text style={styles.performerSectionHeader}>赛季 TOP3!</Text>
+            </View>
+            {renderPerformerSection('得分', seasonLeaders.points, false)}
+            {renderPerformerSection('篮板', seasonLeaders.rebounds, false)}
+            {renderPerformerSection('助攻', seasonLeaders.assists, false)}
+            
+            {(!seasonLeaders.points.length && !seasonLeaders.rebounds.length && !seasonLeaders.assists.length) && (
+              <View style={styles.emptyStateContainer}>
+                <Text style={styles.emptyStateText}>暂无赛季数据</Text>
+              </View>
+            )}
+          </>
+        )}
+
+        {/* Featured Games Section */}
+        <View style={styles.sectionHeader}>
+          <View>
+            <Text style={styles.sectionTitle}>今日比赛</Text>
+            {!isLoadingGames && (
+              <Text style={styles.gameCountText}>
+                · {totalGamesCount} 场比赛 · {featuredCount > 0 ? `${featuredCount} 焦点` : ''}
+              </Text>
+            )}
+          </View>
+         
         </View>
-      ) : error && !isRefetching ? (
-        <ErrorState 
-          message={error instanceof Error ? error.message : '无法获取比赛数据'} 
-          onRetry={refetch} 
-        />
-      ) : (
-        <FlatList
-          data={sortedGames}
-          renderItem={renderGame}
-          keyExtractor={(item) => item.gameId}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl 
-              refreshing={isManualRefreshing} 
-              onRefresh={onManualRefresh} 
-              tintColor={COLORS.accent} 
-              progressViewOffset={insets.top + 60}
-            />
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>今天没有比赛安排</Text>
-            </View>
-          }
-        />
-      )}
+
+        {isLoadingGames ? (
+          <View style={styles.list}>
+            {[1, 2].map((i) => (
+              <View key={i} style={styles.skeletonCard}>
+                <Skeleton width={'100%'} height={120} borderRadius={16} />
+              </View>
+            ))}
+          </View>
+        ) : gamesError ? (
+          <ErrorState message="无法获取比赛数据" onRetry={refetchGames} />
+        ) : (
+          <View style={styles.list}>
+            {gamesToShow.length > 0 ? (
+              gamesToShow.map((game: Game, index: number) => renderGame({ item: game, index }))
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>暂无焦点赛事</Text>
+              </View>
+            )}
+            
+            <Link href="/fullgames" asChild>
+              <TouchableOpacity style={styles.viewAllGamesButton} activeOpacity={0.7}>
+                <Text style={styles.viewAllGamesButtonText}>查看全部 {totalGamesCount} 场比赛</Text>
+              </TouchableOpacity>
+            </Link>
+          </View>
+        )}
+
+      </ScrollView>
     </View>
   );
 }
@@ -477,66 +457,80 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.bg,
   },
-  header: {
-    backgroundColor: COLORS.header,
-    borderBottomWidth: 0.5,
+  headerContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: COLORS.divider,
   },
-  dateScrollView: {
-    flexGrow: 0,
-  },
-  dateScrollContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  dateButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginRight: 8,
-    borderRadius: 12,
-    minWidth: 70,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dateButtonActive: {
-    backgroundColor: COLORS.card,
-  },
-  dateButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: COLORS.textSecondary,
-  },
-  dateButtonTextActive: {
+  headerAppName: {
     color: COLORS.textMain,
+    fontSize: 28,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginBottom: 4,
+    fontStyle: 'italic',
+  },
+  headerDate: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  performerSection: {
+    marginTop: 12,
+  },
+  performerSectionHeader: {
+    color: COLORS.textMain,
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 16,
+    paddingHorizontal: 16,
+  },
+  performerSectionTitle: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
     fontWeight: '700',
+    marginBottom: 12,
+    paddingHorizontal: 16,
+    textTransform: 'uppercase',
   },
-  dateButtonTextToday: {
-    color: COLORS.accent,
+  performerList: {
+    paddingHorizontal: 16,
   },
-  activeDot: {
-    position: 'absolute',
-    bottom: 4,
-    width: 12,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: COLORS.accent,
-  },
-  todayIndicator: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: COLORS.accent,
-    marginTop: 4,
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
+  sectionHeader: {
+    marginTop: 32,
+    marginBottom: 16,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  sectionTitle: {
+    color: COLORS.textMain,
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  gameCountText: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    marginTop: 4,
+    fontWeight: '600',
+  },
+  viewAllIcon: {
+    padding: 4,
   },
   list: {
-    padding: 16,
-    paddingTop: 8,
+    paddingHorizontal: 16,
   },
+  emptyStateContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  emptyStateText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+  },
+  // Game Card Styles (Reused)
   gameCard: {
     backgroundColor: COLORS.card,
     borderRadius: 16,
@@ -607,6 +601,7 @@ const styles = StyleSheet.create({
     color: COLORS.textMain,
     textAlign: 'center',
     marginBottom: 2,
+    fontWeight: '600',
   },
   recordText: {
     fontSize: 11,
@@ -634,21 +629,7 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   skeletonCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 20,
     marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  skeletonSide: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  skeletonMiddle: {
-    alignItems: 'center',
-    flex: 1.2,
   },
   boldText: {
     fontWeight: '800',
@@ -710,72 +691,28 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
   },
+  viewAllGamesButton: {
+    backgroundColor: COLORS.cardSecondary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    marginHorizontal: 0,
+    marginTop: 20,
+    marginBottom: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewAllGamesButtonText: {
+    color: COLORS.accent,
+    fontSize: 16,
+    fontWeight: '700',
+  },
   emptyContainer: {
-    paddingTop: 100,
+    paddingTop: 40,
+    paddingBottom: 20,
     alignItems: 'center',
   },
   emptyText: {
     color: COLORS.textSecondary,
     fontSize: 15,
-  },
-  errorText: {
-    color: COLORS.live,
-    fontSize: 16,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  filterContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderTopWidth: 0.5,
-    borderTopColor: COLORS.divider,
-    backgroundColor: COLORS.header,
-  },
-  filterLabel: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    marginRight: 8,
-    fontWeight: '500',
-  },
-  filterButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.divider,
-    marginRight: 8,
-    backgroundColor: COLORS.card,
-  },
-  filterButtonActive: {
-    borderColor: COLORS.accent,
-    backgroundColor: COLORS.accentBackground,
-  },
-  filterButtonText: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-  },
-  filterButtonTextActive: {
-    color: COLORS.accent,
-  },
-  retryButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    backgroundColor: COLORS.accent,
-    borderRadius: 12,
-  },
-  retryText: {
-    color: COLORS.textMain,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  fullDateText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLORS.textMain,
-    paddingHorizontal: 16,
-    paddingBottom: 8,
   },
 });

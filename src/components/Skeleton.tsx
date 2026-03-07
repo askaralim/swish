@@ -1,32 +1,49 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Animated, StyleSheet, ViewStyle } from 'react-native';
+import { View, Animated, StyleSheet, ViewStyle, DimensionValue, Platform } from 'react-native';
 import { COLORS } from '../constants/theme';
 
 interface SkeletonProps {
-  width?: number | string;
-  height?: number | string;
+  width?: DimensionValue;
+  height?: DimensionValue;
   borderRadius?: number;
   style?: ViewStyle;
+  marginBottom?: number;
+  marginLeft?: number;
+  marginRight?: number;
+  marginTop?: number;
 }
 
-export const Skeleton = ({ width, height, borderRadius = 8, style }: SkeletonProps) => {
+export const Skeleton: React.FC<SkeletonProps> = ({
+  width,
+  height,
+  borderRadius = 4,
+  style,
+  marginBottom,
+  marginLeft,
+  marginRight,
+  marginTop,
+}) => {
   const opacity = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
-    Animated.loop(
+    const animation = Animated.loop(
       Animated.sequence([
         Animated.timing(opacity, {
           toValue: 0.7,
           duration: 800,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
         Animated.timing(opacity, {
           toValue: 0.3,
           duration: 800,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
       ])
-    ).start();
+    );
+
+    animation.start();
+
+    return () => animation.stop();
   }, [opacity]);
 
   return (
@@ -34,10 +51,14 @@ export const Skeleton = ({ width, height, borderRadius = 8, style }: SkeletonPro
       style={[
         styles.skeleton,
         {
-          width: width as any,
-          height: height as any,
+          width,
+          height,
           borderRadius,
           opacity,
+          marginBottom,
+          marginLeft,
+          marginRight,
+          marginTop,
         },
         style,
       ]}
@@ -47,6 +68,6 @@ export const Skeleton = ({ width, height, borderRadius = 8, style }: SkeletonPro
 
 const styles = StyleSheet.create({
   skeleton: {
-    backgroundColor: COLORS.divider,
+    backgroundColor: COLORS.cardSecondary || '#1C1C1E',
   },
 });

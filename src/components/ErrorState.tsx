@@ -1,67 +1,54 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/theme';
+import { Ionicons } from '@expo/vector-icons';
 
 interface ErrorStateProps {
   message?: string;
-  onRetry: () => void;
-  title?: string;
+  onRetry?: () => void;
 }
 
-export const ErrorState = ({ 
-  message = '请检查您的网络连接并重试', 
-  onRetry, 
-  title = '加载失败' 
-}: ErrorStateProps) => {
+export const ErrorState: React.FC<ErrorStateProps> = ({ 
+  message = 'Something went wrong', 
+  onRetry 
+}) => {
   return (
     <View style={styles.container}>
-      <Ionicons name="alert-circle-outline" size={48} color={COLORS.textSecondary} style={styles.icon} />
-      <Text style={styles.title}>{title}</Text>
-      {/* <Text style={styles.message}>{message}</Text> */}
-      <TouchableOpacity style={styles.retryButton} onPress={onRetry} activeOpacity={0.8}>
-        <Text style={styles.retryText}>重试</Text>
-      </TouchableOpacity>
+      <Ionicons name="alert-circle-outline" size={48} color={COLORS.textSecondary} />
+      <Text style={styles.message}>{message}</Text>
+      {onRetry && (
+        <TouchableOpacity style={styles.button} onPress={onRetry}>
+          <Text style={styles.buttonText}>Retry</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     padding: 24,
-    backgroundColor: COLORS.bg,
-  },
-  icon: {
-    marginBottom: 16,
-    opacity: 0.5,
-  },
-  title: {
-    color: COLORS.textMain,
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
   },
   message: {
     color: COLORS.textSecondary,
-    fontSize: 14,
+    fontSize: 16,
     textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 20,
+    marginVertical: 16,
   },
-  retryButton: {
-    paddingHorizontal: 32,
-    paddingVertical: 12,
+  button: {
     backgroundColor: COLORS.card,
-    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: COLORS.divider,
   },
-  retryText: {
+  buttonText: {
     color: COLORS.textMain,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
   },
 });

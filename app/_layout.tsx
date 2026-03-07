@@ -115,6 +115,18 @@ export default function RootLayout() {
             ),
           }}
         />
+        <Tabs.Screen
+          name="fullgames"
+          options={{
+            href: null,
+          }}
+        />
+        <Tabs.Screen
+          name="playerComparison/[id1]/[id2]"
+          options={{
+            href: null,
+          }}
+        />
         {/* Detail screens must be defined here with href: null */}
         <Tabs.Screen
           name="game/[id]"

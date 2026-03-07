@@ -1,38 +1,46 @@
-import React, { useRef, useEffect, ReactNode } from 'react';
-import { Animated } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, ViewStyle, Platform } from 'react-native';
 import { MOTION } from '../constants/theme';
 
 interface AnimatedSectionProps {
-  children: ReactNode;
-  index: number;
-  visible: boolean;
-  delay?: number;
+  children: React.ReactNode;
+  index?: number;
+  visible?: boolean;
+  style?: ViewStyle;
 }
 
-export const AnimatedSection = ({ children, index, visible, delay = 40 }: AnimatedSectionProps) => {
-  const animatedValue = useRef(new Animated.Value(0)).current;
+export const AnimatedSection: React.FC<AnimatedSectionProps> = ({ 
+  children, 
+  index = 0, 
+  visible = true,
+  style 
+}) => {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
     if (visible) {
-      Animated.timing(animatedValue, {
-        toValue: 1,
-        duration: MOTION.Standard,
-        delay: index * delay,
-        easing: MOTION.AppleEasing,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      animatedValue.setValue(0);
+      Animated.parallel([
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: MOTION.Standard,
+          delay: index * 50, // Stagger effect
+          useNativeDriver: Platform.OS !== 'web',
+          easing: MOTION.AppleEasing,
+        }),
+        Animated.timing(translateY, {
+          toValue: 0,
+          duration: MOTION.Standard,
+          delay: index * 50,
+          useNativeDriver: Platform.OS !== 'web',
+          easing: MOTION.AppleEasing,
+        }),
+      ]).start();
     }
-  }, [visible, index, delay]);
-
-  const translateY = animatedValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [8, 0],
-  });
+  }, [visible, index]);
 
   return (
-    <Animated.View style={{ opacity: animatedValue, transform: [{ translateY }] }}>
+    <Animated.View style={[{ opacity, transform: [{ translateY }] }, style]}>
       {children}
     </Animated.View>
   );

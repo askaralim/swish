@@ -112,9 +112,22 @@ export function getChineseDate(): Date {
 
 // --- API Endpoints ---
 
-export async function fetchGames(date?: Date) {
+export async function fetchTodayTopPerformers(date: Date) {
+  const dateParam = formatDateForAPI(date);
+  return apiGet('/api/v1/nba/todayTopPerformers', { date: dateParam });
+}
+
+export async function fetchSeasonLeaders() {
+  return apiGet('/api/v1/nba/seasonLeaders');
+}
+
+export async function fetchGames(date?: Date, featured: boolean = false) {
   const dateParam = date ? formatDateForAPI(date) : formatDateForAPI(getChineseDate());
-  return apiGet('/api/v1/nba/games/today', { date: dateParam });
+  const params: Record<string, any> = { date: dateParam };
+  if (featured) {
+    params.featured = 'true';
+  }
+  return apiGet('/api/v1/nba/games/today', params);
 }
 
 export async function fetchStandings() {
@@ -224,4 +237,16 @@ export async function fetchTranslatedNews(params: {
 } = {}) {
   const { page = 1, limit = 20, sort = 'published_at:desc' } = params;
   return apiGet('/api/v2/nba/translated-news', { page, limit, sort }, true);
+}
+
+export async function fetchPlayerBasicStats(playerId: string) {
+  return apiGet(`/api/v1/nba/players/${playerId}/stats/current`);
+}
+
+export async function fetchTeams() {
+  return apiGet('/api/v1/nba/teams');
+}
+
+export async function fetchPlayersByTeam(teamAbbreviation: string) {
+  return apiGet(`/api/v1/nba/teams/${teamAbbreviation}/roster`);
 }

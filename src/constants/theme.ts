@@ -4,6 +4,7 @@ export const COLORS = {
   bg: '#000000',
   header: '#121216',
   card: '#16161A',
+  cardSecondary: '#1C1C1E',
   textMain: '#FFFFFF',
   textSecondary: '#71767a',
   accent: '#1d9bf0',
