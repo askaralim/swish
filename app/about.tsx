@@ -4,11 +4,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Application from 'expo-application';
 import { COLORS } from '../src/constants/theme';
-import { useRouter } from 'expo-router';
+import { ScreenHeader } from '../src/components/ScreenHeader';
 
 export default function AboutScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
 
   const appVersion = Application.nativeApplicationVersion || '1.0.0'; // Fallback for web or dev
   const buildVersion = Application.nativeBuildVersion || '1';
@@ -18,14 +17,8 @@ export default function AboutScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
-          <Ionicons name="chevron-back" size={24} color={COLORS.textMain} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>关于 Swish</Text>
-        <View style={styles.iconButton} />
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader title="关于" subtitle="Swish" insetsTop={insets.top} />
 
       <ScrollView contentContainerStyle={styles.contentContainer}>
         <View style={styles.section}>
@@ -80,27 +73,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.bg,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    height: 44,
-    paddingHorizontal: 8,
-    backgroundColor: COLORS.header,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.divider,
-  },
-  iconButton: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    color: COLORS.textMain,
-    fontSize: 17,
-    fontWeight: '600',
   },
   contentContainer: {
     padding: 16,

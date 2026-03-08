@@ -1,17 +1,17 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, ActivityIndicator, TouchableOpacity, Dimensions, TextInput } from 'react-native';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Dimensions } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
-import { fetchPlayerDetails, fetchPlayerBasicStats, fetchTeams, fetchPlayersByTeam } from '../../../src/services/api';
+import { fetchPlayerDetails, fetchPlayerBasicStats } from '../../../src/services/api';
 import { COLORS } from '../../../src/constants/theme';
 import { Skeleton } from '../../../src/components/Skeleton';
 import { ErrorState } from '../../../src/components/ErrorState';
 import { getTeamImage } from '../../../src/utils/teamImages';
-
+import { PlayerPickerModal } from '../../../src/components/PlayerPickerModal';
 import { Ionicons } from '@expo/vector-icons';
 
-const { width: windowWidth } = Dimensions.get('window');
 
 interface PlayerData {
   id: string;
@@ -54,21 +54,58 @@ interface ComparisonStatProps {
 }
 
 const ComparisonStat: React.FC<ComparisonStatProps> = ({ label, player1Value, player2Value, highlightHigher, isPercentage }) => {
-  const p1Val = typeof player1Value === 'number' && isPercentage ? player1Value + '%' : player1Value;
-  const p2Val = typeof player2Value === 'number' && isPercentage ? player2Value + '%' : player2Value;
+  const val1 = typeof player1Value === 'number' ? player1Value : 0;
+  const val2 = typeof player2Value === 'number' ? player2Value : 0;
+  
+  const p1Text = typeof player1Value === 'number' ? (isPercentage ? player1Value + '%' : player1Value) : '--';
+  const p2Text = typeof player2Value === 'number' ? (isPercentage ? player2Value + '%' : player2Value) : '--';
 
-  const isPlayer1Higher = highlightHigher && typeof player1Value === 'number' && typeof player2Value === 'number' && player1Value > player2Value;
-  const isPlayer2Higher = highlightHigher && typeof player1Value === 'number' && typeof player2Value === 'number' && player2Value > player1Value;
+  const maxVal = Math.max(val1, val2) || 1; 
+  
+  const p1BarWidth = Math.min((val1 / maxVal) * 100, 100);
+  const p2BarWidth = Math.min((val2 / maxVal) * 100, 100);
+
+  const isP1Higher = highlightHigher && val1 > val2;
+  const isP2Higher = highlightHigher && val2 > val1;
 
   return (
-    <View style={comparisonStyles.statRow}>
-      <Text style={[comparisonStyles.statValue, isPlayer1Higher && comparisonStyles.highlightValue]}>
-        {p1Val ?? '--'}
-      </Text>
+    <View style={comparisonStyles.statContainer}>
       <Text style={comparisonStyles.statLabel}>{label}</Text>
-      <Text style={[comparisonStyles.statValue, isPlayer2Higher && comparisonStyles.highlightValue]}>
-        {p2Val ?? '--'}
-      </Text>
+      <View style={comparisonStyles.statRow}>
+        <Text style={[comparisonStyles.statValue, comparisonStyles.statValueLeft, isP1Higher && comparisonStyles.highlightValue]}>
+          {p1Text}
+        </Text>
+        
+        <View style={comparisonStyles.barsArea}>
+          <View style={comparisonStyles.barWrapperLeft}>
+            <View style={[
+              comparisonStyles.bar, 
+              { 
+                width: `${p1BarWidth}%`, 
+                backgroundColor: isP1Higher ? COLORS.accent : COLORS.cardSecondary,
+                opacity: isP1Higher ? 1 : 0.5
+              }
+            ]} />
+          </View>
+          
+          <View style={comparisonStyles.barDivider} />
+
+          <View style={comparisonStyles.barWrapperRight}>
+             <View style={[
+              comparisonStyles.bar, 
+              { 
+                width: `${p2BarWidth}%`, 
+                backgroundColor: isP2Higher ? COLORS.accent : COLORS.cardSecondary,
+                opacity: isP2Higher ? 1 : 0.5
+              }
+            ]} />
+          </View>
+        </View>
+
+        <Text style={[comparisonStyles.statValue, comparisonStyles.statValueRight, isP2Higher && comparisonStyles.highlightValue]}>
+          {p2Text}
+        </Text>
+      </View>
     </View>
   );
 };
@@ -80,16 +117,24 @@ export default function PlayerComparisonScreen() {
 
   const [player1Id, setPlayer1Id] = useState<string | null>(id1 || null);
   const [player2Id, setPlayer2Id] = useState<string | null>(id2 || null);
-  const [showPlayerSelectionModal, setShowPlayerSelectionModal] = useState(false);
+  const [showPlayerPicker, setShowPlayerPicker] = useState(false);
   const [selectingPlayerSlot, setSelectingPlayerSlot] = useState<1 | 2>(1);
+  const [pickerModalKey, setPickerModalKey] = useState(0);
 
-  // Update state when params change
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        setShowPlayerPicker(false);
+        setPickerModalKey((k) => k + 1);
+      };
+    }, [])
+  );
+
   useEffect(() => {
     if (id1) setPlayer1Id(id1);
     if (id2) setPlayer2Id(id2);
   }, [id1, id2]);
 
-  // Fetch Player 1 Details
   const { data: player1Details, isLoading: isLoadingP1Details, error: errorP1Details } = useQuery({
     queryKey: ['playerDetails', player1Id],
     queryFn: () => fetchPlayerDetails(player1Id!),
@@ -97,7 +142,6 @@ export default function PlayerComparisonScreen() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch Player 1 Basic Stats
   const { data: player1BasicStats, isLoading: isLoadingP1Stats, error: errorP1Stats } = useQuery({
     queryKey: ['playerBasicStats', player1Id],
     queryFn: () => fetchPlayerBasicStats(player1Id!),
@@ -105,7 +149,6 @@ export default function PlayerComparisonScreen() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch Player 2 Details
   const { data: player2Details, isLoading: isLoadingP2Details, error: errorP2Details } = useQuery({
     queryKey: ['playerDetails', player2Id],
     queryFn: () => fetchPlayerDetails(player2Id!),
@@ -113,7 +156,6 @@ export default function PlayerComparisonScreen() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch Player 2 Basic Stats
   const { data: player2BasicStats, isLoading: isLoadingP2Stats, error: errorP2Stats } = useQuery({
     queryKey: ['playerBasicStats', player2Id],
     queryFn: () => fetchPlayerBasicStats(player2Id!),
@@ -208,19 +250,61 @@ export default function PlayerComparisonScreen() {
     } else {
       setPlayer2Id(playerId);
     }
-    setShowPlayerSelectionModal(false);
+    setShowPlayerPicker(false);
   };
 
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
       
-      {/* Header */}
+      {/* Header with Player Selectors */}
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={COLORS.textMain} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>球员对比</Text>
+        
+        <View style={styles.headerSelectors}>
+          <TouchableOpacity 
+            style={styles.selectorButton}
+            onPress={() => {setSelectingPlayerSlot(1); setShowPlayerPicker(true);}}
+            activeOpacity={0.7}
+          >
+            <View style={{ flex: 1, alignItems: 'center' }}>
+              <Text style={styles.selectorName} numberOfLines={1}>
+                {player1Data ? player1Data.name : '选择球员'}
+              </Text>
+              <View style={styles.selectorRow}>
+                <Text style={styles.selectorTeam}>
+                  {player1Data ? player1Data.teamNameZhCN : '--'}
+                </Text>
+                <Ionicons name="caret-down" size={10} color={COLORS.textSecondary} style={{ marginLeft: 4 }} />
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          <View style={styles.vsContainerHeader}>
+            <Text style={styles.vsTextHeader}>VS</Text>
+          </View>
+
+          <TouchableOpacity 
+            style={styles.selectorButton}
+            onPress={() => {setSelectingPlayerSlot(2); setShowPlayerPicker(true);}}
+            activeOpacity={0.7}
+          >
+            <View style={{ flex: 1, alignItems: 'center' }}>
+              <Text style={styles.selectorName} numberOfLines={1}>
+                {player2Data ? player2Data.name : '选择球员'}
+              </Text>
+              <View style={styles.selectorRow}>
+                <Text style={styles.selectorTeam}>
+                  {player2Data ? player2Data.teamNameZhCN : '--'}
+                </Text>
+                <Ionicons name="caret-down" size={10} color={COLORS.textSecondary} style={{ marginLeft: 4 }} />
+              </View>
+            </View>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.headerRight} />
       </View>
 
@@ -235,7 +319,7 @@ export default function PlayerComparisonScreen() {
             {/* Player 1 Card */}
             <TouchableOpacity 
               style={styles.playerCard} 
-              onPress={() => {setSelectingPlayerSlot(1); setShowPlayerSelectionModal(true);}}
+              onPress={() => {setSelectingPlayerSlot(1); setShowPlayerPicker(true);}}
               activeOpacity={0.7}
             >
               {isLoadingP1Details || isLoadingP1Stats ? (
@@ -243,18 +327,14 @@ export default function PlayerComparisonScreen() {
               ) : player1Data ? (
                 <PlayerCardContent player={player1Data} />
               ) : (
-                <EmptyPlayerCard onAddPlayer={() => {setSelectingPlayerSlot(1); setShowPlayerSelectionModal(true);}} />
+                <EmptyPlayerCard onAddPlayer={() => {setSelectingPlayerSlot(1); setShowPlayerPicker(true);}} />
               )}
             </TouchableOpacity>
-
-            <View style={styles.vsContainer}>
-              <Text style={styles.vsText}>VS</Text>
-            </View>
 
             {/* Player 2 Card */}
             <TouchableOpacity 
               style={styles.playerCard} 
-              onPress={() => {setSelectingPlayerSlot(2); setShowPlayerSelectionModal(true);}}
+              onPress={() => {setSelectingPlayerSlot(2); setShowPlayerPicker(true);}}
               activeOpacity={0.7}
             >
               {isLoadingP2Details || isLoadingP2Stats ? (
@@ -262,7 +342,7 @@ export default function PlayerComparisonScreen() {
               ) : player2Data ? (
                 <PlayerCardContent player={player2Data} />
               ) : (
-                <EmptyPlayerCard onAddPlayer={() => {setSelectingPlayerSlot(2); setShowPlayerSelectionModal(true);}} />
+                <EmptyPlayerCard onAddPlayer={() => {setSelectingPlayerSlot(2); setShowPlayerPicker(true);}} />
               )}
             </TouchableOpacity>
           </View>
@@ -285,9 +365,11 @@ export default function PlayerComparisonScreen() {
           </View>
         )}
       </ScrollView>
-      <PlayerSelectionModal
-        visible={showPlayerSelectionModal}
-        onClose={() => setShowPlayerSelectionModal(false)}
+      
+      <PlayerPickerModal
+        key={pickerModalKey}
+        visible={showPlayerPicker}
+        onClose={() => setShowPlayerPicker(false)}
         onSelectPlayer={handleSelectPlayer}
         selectedPlayer1Id={player1Id}
         selectedPlayer2Id={player2Id}
@@ -312,7 +394,9 @@ const PlayerCardContent: React.FC<PlayerCardContentProps> = ({ player }) => (
   </View>
 );
 
-interface PlayerCardSkeletonProps {}
+interface PlayerCardSkeletonProps {
+  // Intentionally empty for skeleton component
+}
 
 const PlayerCardSkeleton: React.FC<PlayerCardSkeletonProps> = () => (
   <View style={styles.playerCardContent}>
@@ -336,125 +420,6 @@ const EmptyPlayerCard: React.FC<EmptyPlayerCardProps> = ({ onAddPlayer }) => (
   </TouchableOpacity>
 );
 
-interface PlayerSelectionModalProps {
-  visible: boolean;
-  onClose: () => void;
-  onSelectPlayer: (playerId: string) => void;
-  selectedPlayer1Id: string | null;
-  selectedPlayer2Id: string | null;
-}
-
-const PlayerSelectionModal: React.FC<PlayerSelectionModalProps> = ({
-  visible,
-  onClose,
-  onSelectPlayer,
-  selectedPlayer1Id,
-  selectedPlayer2Id,
-}) => {
-  const insets = useSafeAreaInsets();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
-
-  const { data: teamsData, isLoading: isLoadingTeams } = useQuery({
-    queryKey: ['teams'],
-    queryFn: fetchTeams,
-    staleTime: Infinity,
-  });
-
-  const teams = useMemo(() => teamsData?.teams || [], [teamsData]);
-
-  const { data: playersData, isLoading: isLoadingPlayers } = useQuery({
-    queryKey: ['playersByTeam', selectedTeam],
-    queryFn: () => fetchPlayersByTeam(selectedTeam!),
-    enabled: !!selectedTeam,
-    staleTime: Infinity,
-  });
-
-  const players = useMemo(() => {
-    if (!playersData?.players) return [];
-    return playersData.players.filter((player: any) => 
-      player.fullName.toLowerCase().includes(searchQuery.toLowerCase()) &&
-      player.id !== selectedPlayer1Id &&
-      player.id !== selectedPlayer2Id
-    );
-  }, [playersData, searchQuery, selectedPlayer1Id, selectedPlayer2Id]);
-
-  return (
-    <View /* Using View instead of Modal for now to avoid complexity, will use Modal later */ style={[
-      modalStyles.modalContainer, 
-      { paddingTop: insets.top, paddingBottom: insets.bottom, display: visible ? 'flex' : 'none' }
-    ]}>
-      <View style={modalStyles.modalHeader}>
-        <Text style={modalStyles.modalTitle}>选择球员</Text>
-        <TouchableOpacity onPress={onClose} style={modalStyles.closeButton}>
-          <Text style={modalStyles.closeButtonText}>关闭</Text>
-        </TouchableOpacity>
-      </View>
-      <View style={modalStyles.searchBar}>
-        <Text style={modalStyles.searchIcon}>🔍</Text>
-        <TextInput
-          style={modalStyles.searchInput}
-          placeholder="搜索球员..."
-          placeholderTextColor={COLORS.textSecondary}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={modalStyles.teamFilterContainer}>
-        <TouchableOpacity 
-          style={[modalStyles.teamFilterButton, !selectedTeam && modalStyles.teamFilterButtonActive]}
-          onPress={() => setSelectedTeam(null)}
-        >
-          <Text style={[modalStyles.teamFilterButtonText, !selectedTeam && modalStyles.teamFilterButtonTextActive]}>所有球队</Text>
-        </TouchableOpacity>
-        {isLoadingTeams ? (
-          [1,2,3].map(i => <Skeleton key={i} width={80} height={30} borderRadius={15} style={{ marginRight: 8 }} />)
-        ) : (
-          teams.map((team: any) => (
-            <TouchableOpacity 
-              key={team.abbreviation}
-              style={[modalStyles.teamFilterButton, selectedTeam === team.abbreviation && modalStyles.teamFilterButtonActive]}
-              onPress={() => setSelectedTeam(team.abbreviation)}
-            >
-              <Text style={[modalStyles.teamFilterButtonText, selectedTeam === team.abbreviation && modalStyles.teamFilterButtonTextActive]}>
-                {team.nameZhCN || team.abbreviation}
-              </Text>
-            </TouchableOpacity>
-          ))
-        )}
-      </ScrollView>
-      <ScrollView style={modalStyles.playerList}>
-        {isLoadingPlayers && selectedTeam ? (
-          [1,2,3,4,5].map(i => (
-            <View key={i} style={modalStyles.playerListItemSkeleton}>
-              <Skeleton width={40} height={40} borderRadius={20} marginRight={12} />
-              <Skeleton width={150} height={18} />
-            </View>
-          ))
-        ) : players.length > 0 ? (
-          players.map((player: any) => (
-            <TouchableOpacity 
-              key={player.id} 
-              style={modalStyles.playerListItem}
-              onPress={() => onSelectPlayer(player.id)}
-            >
-              <Image source={{ uri: player.headshot }} style={modalStyles.playerHeadshot} />
-              <View>
-                <Text style={modalStyles.playerName}>{player.fullName}</Text>
-                <Text style={modalStyles.playerTeam}>{player.teamNameZhCN || player.teamAbbreviation} | {player.position}</Text>
-              </View>
-            </TouchableOpacity>
-          ))
-        ) : (
-          <View style={modalStyles.emptyState}>
-            <Text style={modalStyles.emptyText}>没有找到相关球员</Text>
-          </View>
-        )}
-      </ScrollView>
-    </View>
-  );
-};
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -465,27 +430,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 20,
   },
-  title: {
-    color: COLORS.textMain,
-    fontSize: 28,
-    fontWeight: '800',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
   comparisonContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between', // Changed from space-around to better fit
     alignItems: 'center',
     marginBottom: 30,
+    gap: 12, // Add gap between cards
   },
   playerCard: {
-    width: (windowWidth - 32 - 60) / 2, // 32 for horizontal padding, 60 for VS section
+    flex: 1, // Use flex to share width
     backgroundColor: COLORS.card,
     borderRadius: 16,
     padding: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 200, // Ensure consistent height
+    minHeight: 200,
   },
   playerCardContent: {
     alignItems: 'center',
@@ -499,14 +458,14 @@ const styles = StyleSheet.create({
   },
   playerName: {
     color: COLORS.textMain,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     textAlign: 'center',
     marginBottom: 4,
   },
   playerInfo: {
     color: COLORS.textSecondary,
-    fontSize: 13,
+    fontSize: 12,
     marginBottom: 8,
   },
   playerTeamRow: {
@@ -514,23 +473,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   playerTeamLogo: {
-    width: 24,
-    height: 24,
-    marginRight: 8,
+    width: 20,
+    height: 20,
+    marginRight: 6,
   },
   playerTeamName: {
     color: COLORS.textSecondary,
-    fontSize: 14,
-  },
-  vsContainer: {
-    width: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  vsText: {
-    color: COLORS.textSecondary,
-    fontSize: 22,
-    fontWeight: '800',
+    fontSize: 12,
   },
   emptyPlayerCard: {
     width: '100%',
@@ -540,7 +489,7 @@ const styles = StyleSheet.create({
   },
   addPlayerText: {
     color: COLORS.accent,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
   },
   header: {
@@ -557,14 +506,48 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 8,
     marginLeft: -8,
+    width: 40,
   },
-  headerTitle: {
+  headerSelectors: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  selectorButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 4,
+  },
+  selectorName: {
     color: COLORS.textMain,
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '700',
+    textAlign: 'center',
+  },
+  selectorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  selectorTeam: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  vsContainerHeader: {
+    paddingHorizontal: 12,
+  },
+  vsTextHeader: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '800',
+    opacity: 0.5,
   },
   headerRight: {
-    width: 40, // Balance the back button width
+    width: 40,
   },
 });
 
@@ -579,152 +562,77 @@ const comparisonStyles = StyleSheet.create({
     color: COLORS.textMain,
     fontSize: 18,
     fontWeight: '700',
-    marginBottom: 15,
+    marginBottom: 20,
     textAlign: 'center',
   },
   statsContainer: {
     // Grid or stacked layout for stats
   },
-  statRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.divider,
+  statContainer: {
+    marginBottom: 20,
   },
   statLabel: {
     color: COLORS.textSecondary,
-    fontSize: 15,
-    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
     textAlign: 'center',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  statRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   statValue: {
     color: COLORS.textMain,
     fontSize: 16,
     fontWeight: '600',
-    minWidth: 50,
-    textAlign: 'center',
+    width: 60,
+    fontVariant: ['tabular-nums'],
+  },
+  statValueLeft: {
+    textAlign: 'right',
+    marginRight: 12,
+  },
+  statValueRight: {
+    textAlign: 'left',
+    marginLeft: 12,
   },
   highlightValue: {
     color: COLORS.accent,
     fontWeight: '800',
   },
-});
-
-// Temporary modal styles - will be replaced with a proper Modal component
-const modalStyles = StyleSheet.create({
-  modalContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: COLORS.bg,
-    zIndex: 1000,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.divider,
-  },
-  modalTitle: {
-    color: COLORS.textMain,
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  closeButton: {
-    padding: 8,
-  },
-  closeButtonText: {
-    color: COLORS.accent,
-    fontSize: 16,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.cardSecondary,
-    borderRadius: 10,
-    marginHorizontal: 16,
-    marginTop: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  searchIcon: {
-    marginRight: 8,
-    fontSize: 16,
-  },
-  searchInput: {
+  barsArea: {
     flex: 1,
-    color: COLORS.textMain,
-    fontSize: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.divider, // Use divider color for the track background
+    overflow: 'hidden',
   },
-  teamFilterContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  teamFilterButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: COLORS.cardSecondary,
-    marginRight: 8,
-  },
-  teamFilterButtonActive: {
-    backgroundColor: COLORS.accent,
-  },
-  teamFilterButtonText: {
-    color: COLORS.textSecondary,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  teamFilterButtonTextActive: {
-    color: COLORS.textMain,
-  },
-  playerList: {
+  barWrapperLeft: {
     flex: 1,
-    marginHorizontal: 16,
-  },
-  playerListItem: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.divider,
+    justifyContent: 'flex-end',
+    height: '100%',
+    backgroundColor: 'transparent',
   },
-  playerListItemSkeleton: {
+  barWrapperRight: {
+    flex: 1,
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.divider,
+    justifyContent: 'flex-start',
+    height: '100%',
+    backgroundColor: 'transparent',
   },
-  playerHeadshot: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 12,
-    backgroundColor: COLORS.divider,
+  bar: {
+    height: '100%',
+    borderRadius: 3,
   },
-  playerName: {
-    color: COLORS.textMain,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  playerTeam: {
-    color: COLORS.textSecondary,
-    fontSize: 12,
-  },
-  emptyState: {
-    paddingVertical: 40,
-    alignItems: 'center',
-  },
-  emptyText: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
+  barDivider: {
+    width: 2,
+    height: '100%',
+    backgroundColor: COLORS.card, // Match card background to create a gap
   },
 });

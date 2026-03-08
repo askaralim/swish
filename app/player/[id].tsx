@@ -28,6 +28,7 @@ import { COLORS, MOTION } from '../../src/constants/theme';
 import { AnimatedSection } from '../../src/components/AnimatedSection';
 import { Skeleton } from '../../src/components/Skeleton';
 import { ErrorState } from '../../src/components/ErrorState';
+import { DetailScreenHeader } from '../../src/components/DetailScreenHeader';
 
 const { width } = Dimensions.get('window');
 const HEADER_EXPANDED_HEIGHT = 220;
@@ -129,11 +130,7 @@ export default function PlayerDetailScreen() {
     return (
       <View style={styles.container}>
         <View style={[styles.header, { height: HEADER_EXPANDED_HEIGHT + insets.top, paddingTop: insets.top, backgroundColor: COLORS.header }]}>
-          <View style={styles.navBar}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
-              <Ionicons name="chevron-back" size={24} color={COLORS.textMain} />
-            </TouchableOpacity>
-          </View>
+          <DetailScreenHeader onBack={() => router.back()} paddingTop={0}>
           <View style={styles.expandedContent}>
             <View style={styles.headerTop}>
               <Skeleton width={100} height={100} borderRadius={50} />
@@ -144,6 +141,7 @@ export default function PlayerDetailScreen() {
               </View>
             </View>
           </View>
+          </DetailScreenHeader>
         </View>
         <ScrollView style={{ marginTop: HEADER_EXPANDED_HEIGHT + insets.top + 20 }} contentContainerStyle={{ padding: 16 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24 }}>
@@ -412,19 +410,16 @@ export default function PlayerDetailScreen() {
     <View style={styles.container}>
       {/* Animated Header */}
       <Animated.View style={[styles.header, { height: headerHeight, paddingTop: insets.top, opacity: headerOpacity }]}>
-        <View style={styles.navBar}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
-            <Ionicons name="chevron-back" size={24} color={COLORS.textMain} />
-          </TouchableOpacity>
-          
-          <Animated.View style={[styles.compactHeader, { opacity: collapsedOpacity }]}>
-            {details.photo && <Image source={{ uri: details.photo }} style={styles.compactPhoto} />}
-            <Text style={styles.compactTitle}>{details.name}</Text>
-          </Animated.View>
-          
-          <View style={styles.iconButton} />
-        </View>
-
+        <DetailScreenHeader
+          onBack={() => router.back()}
+          center={
+            <Animated.View style={[styles.compactHeader, { opacity: collapsedOpacity }]}>
+              {details.photo && <Image source={{ uri: details.photo }} style={styles.compactPhoto} />}
+              <Text style={styles.compactTitle}>{details.name}</Text>
+            </Animated.View>
+          }
+          paddingTop={0}
+        >
         {/* Expanded Content */}
         <Animated.View style={[styles.expandedContent, { opacity: expandedOpacity }]}>
           <View style={styles.headerTop}>
@@ -466,6 +461,7 @@ export default function PlayerDetailScreen() {
             }) 
           }]} />
         </View>
+        </DetailScreenHeader>
       </Animated.View>
 
       {/* Main Scroll Content */}

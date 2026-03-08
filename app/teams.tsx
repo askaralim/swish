@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useState, useRef, useEffect } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { 
   View, 
   Text, 
@@ -21,6 +22,7 @@ import { COLORS, MOTION } from '../src/constants/theme';
 import { AnimatedSection } from '../src/components/AnimatedSection';
 import { Skeleton } from '../src/components/Skeleton';
 import { ErrorState } from '../src/components/ErrorState';
+import { ScreenHeader } from '../src/components/ScreenHeader';
 
 const { width } = Dimensions.get('window');
 
@@ -62,6 +64,7 @@ interface StandingsData {
 
 export default function TeamsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [selectedConference, setSelectedConference] = useState<'East' | 'West'>('East');
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const tabIndicatorPos = useRef(new Animated.Value(0)).current;
@@ -158,10 +161,11 @@ export default function TeamsScreen() {
   if (isLoading || (isRefetching && !data)) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Skeleton width={120} height={32} />
-          <Skeleton width={80} height={16} style={{ marginTop: 8 }} />
-        </View>
+        <ScreenHeader
+          title="联盟排名"
+          subtitle="2025-26 赛季"
+          insetsTop={insets.top}
+        />
         <View style={styles.scrollContent}>
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <View key={i} style={styles.skeletonRow}>
@@ -188,13 +192,11 @@ export default function TeamsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>联盟排名</Text>
-          <Text style={styles.subtitle}>{standings?.seasonDisplayName || '2025-26 赛季'}</Text>
-        </View>
-      </View>
+      <ScreenHeader
+        title="联盟排名"
+        subtitle={standings?.seasonDisplayName || '2025-26 赛季'}
+        insetsTop={insets.top}
+      />
 
       {/* Tabs */}
       <View style={styles.tabWrapper}>
@@ -256,26 +258,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  header: {
-    paddingTop: 64,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    backgroundColor: COLORS.header,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: COLORS.textMain,
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-    marginTop: 2,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
   },
   tabWrapper: {
     backgroundColor: COLORS.header,

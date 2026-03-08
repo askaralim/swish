@@ -24,6 +24,7 @@ import { COLORS, MOTION } from '../src/constants/theme';
 import { AnimatedSection } from '../src/components/AnimatedSection';
 import { Skeleton } from '../src/components/Skeleton';
 import { ErrorState } from '../src/components/ErrorState';
+import { ScreenHeader } from '../src/components/ScreenHeader';
 
 const { width } = Dimensions.get('window');
 
@@ -132,11 +133,12 @@ export default function PlayersStatsScreen() {
 
   if (isLoading || (isRefetching && !data)) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.pageHeader}>
-          <Skeleton width={150} height={32} />
-          <Skeleton width={100} height={16} style={{ marginTop: 8 }} />
-        </View>
+      <View style={styles.container}>
+        <ScreenHeader
+          title="球员数据榜"
+          subtitle="2025-26 赛季 • 常规赛"
+          insetsTop={insets.top}
+        />
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
           {[1, 2].map((i) => (
             <View key={i} style={styles.skeletonSection}>
@@ -169,15 +171,12 @@ export default function PlayersStatsScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.pageHeader}>
-        <Text style={styles.pageTitle}>球员数据榜</Text>
-        {data?.metadata && (
-          <Text style={styles.pageSubtitle}>
-            {data.metadata.season} • {data.metadata.seasonType}
-          </Text>
-        )}
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader
+        title="球员数据榜"
+        subtitle={data?.metadata ? `${data.metadata.season} • ${data.metadata.seasonType}` : undefined}
+        insetsTop={insets.top}
+      />
 
       <ScrollView 
         style={styles.scrollView} 
@@ -232,23 +231,6 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: COLORS.textMain,
     fontWeight: '600',
-  },
-  pageHeader: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: COLORS.bg,
-  },
-  pageTitle: {
-    color: COLORS.textMain,
-    fontSize: 28,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-  pageSubtitle: {
-    color: COLORS.textSecondary,
-    fontSize: 13,
-    fontWeight: '500',
-    marginTop: 2,
   },
   scrollView: {
     flex: 1,

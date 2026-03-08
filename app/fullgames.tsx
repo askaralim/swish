@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   View, 
@@ -16,10 +16,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { fetchGames, formatDateForAPI, getChineseDate } from '../src/services/api';
 import { COLORS } from '../src/constants/theme';
-import { GameCard } from '../src/components/GameCard';
+import { GameCard, Game } from '../src/components/GameCard';
 import { Skeleton } from '../src/components/Skeleton';
 import { ErrorState } from '../src/components/ErrorState';
-
 import { Ionicons } from '@expo/vector-icons';
 
 const { width: windowWidth } = Dimensions.get('window');
@@ -38,7 +37,6 @@ export default function FullGamesScreen() {
   const insets = useSafeAreaInsets();
   const [selectedDate, setSelectedDate] = useState<Date>(getChineseDate());
   const [selectedFilter, setSelectedFilter] = useState<'isClosest' | 'isOvertime' | 'isMarquee' | null>(null);
-  const [isDataLoaded, setIsDataLoaded] = useState(false);
   const dateScrollRef = useRef<ScrollView>(null);
   const [scrollViewWidth, setScrollViewWidth] = useState(0);
   const todayIndex = 2;
@@ -68,7 +66,7 @@ export default function FullGamesScreen() {
 
   useEffect(() => {
     if (scrollViewWidth > 0 && dateScrollRef.current) {
-      const buttonWidth = 76; // Approximate button width
+      const buttonWidth = 70; // Approximate button width
       const scrollPosition = (todayIndex * buttonWidth) - (scrollViewWidth / 2) + (buttonWidth / 2);
       
       dateScrollRef.current.scrollTo({
@@ -79,16 +77,6 @@ export default function FullGamesScreen() {
   }, [scrollViewWidth]);
 
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
-  // Reusing fetchGames but without featured=true flag (or we need a new API param if fetchGames defaults to featured)
-  // Looking at api.ts, fetchGames calls /api/v1/nba/games/today. 
-  // The previous implementation of fetchGames had { featured: true } hardcoded.
-  // I updated api.ts to remove { featured: true } from fetchGames in the previous turn?
-  // Let's check api.ts content again.
-  // Ah, I see I updated fetchGames to NOT have featured: true in the previous turn.
-  // So fetchGames now returns ALL games.
-  // But wait, the Home screen needs FEATURED games.
-  // I should probably have two functions or a param.
-  // Let's check api.ts content.
   
   const { data, isLoading, error, refetch, isRefetching } = useQuery({
     queryKey: ['fullGames', formatDateForAPI(selectedDate)],
@@ -103,6 +91,7 @@ export default function FullGamesScreen() {
       const hasLiveGames = games.some((g: any) => g.gameStatus === 2);
       return hasLiveGames ? 0 : 5000;
     },
+    placeholderData: keepPreviousData,
   });
 
   const onManualRefresh = async () => {
@@ -110,14 +99,6 @@ export default function FullGamesScreen() {
     await refetch();
     setIsManualRefreshing(false);
   };
-
-  useEffect(() => {
-    if (!isLoading && data) {
-      setIsDataLoaded(true);
-    } else {
-      setIsDataLoaded(false);
-    }
-  }, [isLoading, data, selectedDate]);
 
   const sortedAndFilteredGames = useMemo(() => {
     const rawGames: any[] = data?.games || [];
@@ -180,52 +161,59 @@ export default function FullGamesScreen() {
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top }]}>
-        <View style={styles.navHeader}>
-           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-             <Ionicons name="arrow-back" size={24} color={COLORS.textMain} />
-           </TouchableOpacity>
-           <Text style={styles.headerTitle}>全部比赛</Text>
-           <View style={{ width: 40 }} /> 
+        {/* Nav Bar */}
+        <View style={styles.navBar}>
+          <TouchableOpacity 
+            onPress={() => router.back()} 
+            style={styles.navButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="arrow-back" size={24} color={COLORS.textMain} />
+          </TouchableOpacity>
+          <Text style={styles.navTitle}>全部比赛</Text>
+          <View style={styles.navButton} />
         </View>
+
+        {/* Date Selector */}
+        <View style={styles.dateSelectorContainer}>
+          <ScrollView
+            ref={dateScrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.dateScrollView}
+            contentContainerStyle={styles.dateScrollContent}
+            onLayout={(event) => {
+              const { width } = event.nativeEvent.layout;
+              if (width > 0) setScrollViewWidth(width);
+            }}
+          >
+            {dateOptions.map((date, index) => {
+              const isSelected = date.getTime() === selectedDate.getTime();
+              return (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.dateButton}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSelectedDate(date);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[
+                    styles.dateButtonText,
+                    isSelected && styles.dateButtonTextActive
+                  ]}>
+                    {formatDateLabel(date, index)}
+                  </Text>
+                  {isSelected && <View style={styles.activeDot} />}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* <Text style={styles.fullDateText}>{formatFullChineseDate(selectedDate)}</Text> */}
         
-        <ScrollView
-          ref={dateScrollRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.dateScrollView}
-          contentContainerStyle={styles.dateScrollContent}
-          onLayout={(event) => {
-            const { width } = event.nativeEvent.layout;
-            if (width > 0) setScrollViewWidth(width);
-          }}
-        >
-          {dateOptions.map((date, index) => {
-            const isSelected = date.getTime() === selectedDate.getTime();
-            const isTodayDate = date.getTime() === getChineseDate().getTime();
-            return (
-              <TouchableOpacity
-                key={index}
-                style={[styles.dateButton, isSelected && styles.dateButtonActive]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setSelectedDate(date);
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={[
-                  styles.dateButtonText,
-                  isSelected && styles.dateButtonTextActive,
-                  isTodayDate && !isSelected && styles.dateButtonTextToday
-                ]}>
-                  {formatDateLabel(date, index)}
-                </Text>
-                {isSelected && <View style={styles.activeDot} />}
-                {isTodayDate && !isSelected && <View style={styles.todayIndicator} />}
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-        <Text style={styles.fullDateText}>{formatFullChineseDate(selectedDate)}</Text>
         <View style={styles.filterContainer}>
           <Text style={styles.filterLabel}>筛选:</Text>
           <TouchableOpacity
@@ -304,7 +292,7 @@ export default function FullGamesScreen() {
         <FlatList
           data={sortedAndFilteredGames}
           renderItem={({ item, index }) => (
-            <GameCard item={item} index={index} isDataLoaded={!isLoading && !isRefetching} />
+            <GameCard item={item} index={index} isDataLoaded={true} />
           )}
           keyExtractor={(item) => item.gameId}
           contentContainerStyle={styles.list}
@@ -339,81 +327,72 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.divider,
     paddingBottom: 12,
   },
-  navHeader: {
+  navBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 8,
+    height: 44,
   },
-  backButton: {
-    paddingVertical: 8,
-    paddingRight: 16,
-    marginLeft: -8,
+  navButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
-  backButtonText: {
-    display: 'none',
-  },
-  headerTitle: {
+  navTitle: {
     color: COLORS.textMain,
     fontSize: 17,
-    fontWeight: '700',
+    fontWeight: '600',
+  },
+  dateSelectorContainer: {
+    height: 44,
+    justifyContent: 'center',
   },
   dateScrollView: {
     flexGrow: 0,
   },
   dateScrollContent: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    alignItems: 'center',
   },
   dateButton: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 8,
-    marginRight: 8,
-    borderRadius: 12,
-    minWidth: 70,
+    marginRight: 4,
+    minWidth: 60,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.cardSecondary,
-  },
-  dateButtonActive: {
-    backgroundColor: COLORS.accent,
   },
   dateButtonText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '500',
     color: COLORS.textSecondary,
   },
   dateButtonTextActive: {
-    color: '#FFFFFF',
+    color: COLORS.accent,
     fontWeight: '700',
   },
-  dateButtonTextToday: {
-    color: COLORS.accent,
-  },
   activeDot: {
-    display: 'none',
-  },
-  todayIndicator: {
-    width: 4,
-    height: 4,
+    width: 20,
+    height: 3,
     borderRadius: 2,
     backgroundColor: COLORS.accent,
     marginTop: 4,
   },
   fullDateText: {
-    color: COLORS.textSecondary,
-    fontSize: 13,
-    fontWeight: '500',
+    color: COLORS.textMain,
+    fontSize: 15,
+    fontWeight: '600',
     textAlign: 'center',
     marginTop: 8,
-    paddingHorizontal: 16,
   },
   filterContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     paddingHorizontal: 16,
-    marginTop: 12,
+    marginTop: 16,
   },
   filterLabel: {
     color: COLORS.textSecondary,
@@ -423,26 +402,30 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   filterButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
     backgroundColor: COLORS.cardSecondary,
-    marginHorizontal: 4,
+    marginHorizontal: 6,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   filterButtonActive: {
-    backgroundColor: COLORS.accent,
+    backgroundColor: COLORS.cardSecondary,
+    borderColor: COLORS.accent,
   },
   filterButtonText: {
     color: COLORS.textSecondary,
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '500',
   },
   filterButtonTextActive: {
-    color: '#FFFFFF',
+    color: COLORS.accent,
+    fontWeight: '600',
   },
   list: {
     padding: 16,
-    paddingTop: 8,
+    paddingTop: 12,
   },
   skeletonCard: {
     backgroundColor: COLORS.card,

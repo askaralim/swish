@@ -18,6 +18,7 @@ import { AnimatedSection } from '../src/components/AnimatedSection';
 import { Skeleton } from '../src/components/Skeleton';
 import { ErrorState } from '../src/components/ErrorState';
 import { HomePlayerCard, TopPerformer } from '../src/components/HomePlayerCard';
+import { ScreenHeader } from '../src/components/ScreenHeader';
 import { Ionicons } from '@expo/vector-icons';
 
 interface Game {
@@ -342,9 +343,21 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
+      <ScreenHeader
+        title="唰！Swish"
+        subtitle={formatFullChineseDate(selectedDate)}
+        insetsTop={insets.top}
+        rightElement={
+          <Link href="/fullgames" asChild>
+            <TouchableOpacity style={styles.viewAllIcon} activeOpacity={0.7}>
+              <Ionicons name="calendar-outline" size={22} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+          </Link>
+        }
+      />
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingTop: insets.top, paddingBottom: insets.bottom + 20 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -354,11 +367,6 @@ export default function HomeScreen() {
           />
         }
       >
-        {/* Header */}
-        <View style={styles.headerContainer}>
-          <Text style={styles.headerAppName}>唰！Swish</Text>
-          <Text style={styles.headerDate}>{formatFullChineseDate(selectedDate)}</Text>
-        </View>
 
         {/* Top Performers Sections */}
         {isLoadingPerformers ? (
@@ -456,25 +464,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.bg,
-  },
-  headerContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.divider,
-  },
-  headerAppName: {
-    color: COLORS.textMain,
-    fontSize: 28,
-    fontWeight: '900',
-    letterSpacing: 1,
-    marginBottom: 4,
-    fontStyle: 'italic',
-  },
-  headerDate: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    fontWeight: '600',
   },
   performerSection: {
     marginTop: 12,

@@ -16,6 +16,7 @@ import { COLORS } from '../src/constants/theme';
 import { AnimatedSection } from '../src/components/AnimatedSection';
 import { Skeleton } from '../src/components/Skeleton';
 import { ErrorState } from '../src/components/ErrorState';
+import { ScreenHeader } from '../src/components/ScreenHeader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // New interface for translated news articles
@@ -126,11 +127,8 @@ export default function NewsScreen() {
 
   if (isLoading && !data) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
-          <Skeleton width={120} height={32} />
-          <Skeleton width={200} height={16} style={{ marginTop: 8 }} />
-        </View>
+      <View style={styles.container}>
+        <ScreenHeader title="NBA 新闻" subtitle="最新动态，尽在掌握" insetsTop={insets.top} />
         <View style={styles.loadingContent}>
           <ActivityIndicator size="large" color={COLORS.accent} />
           <Text style={styles.loadingText}>正在加载新闻...</Text>
@@ -151,13 +149,8 @@ export default function NewsScreen() {
   const allArticles = data?.pages.flatMap(page => (page as TranslatedNewsResponse).data?.articles || []) ?? [];
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>NBA 新闻</Text>
-          <Text style={styles.subtitle}>最新动态，尽在掌握</Text>
-        </View>
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader title="NBA 新闻" subtitle="最新动态，尽在掌握" insetsTop={insets.top} />
 
       <FlatList
         data={allArticles}
@@ -207,22 +200,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.bg,
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: COLORS.bg,
-  },
-  title: {
-    color: COLORS.textMain,
-    fontSize: 26,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    color: COLORS.textSecondary,
-    fontSize: 13,
-    marginTop: 2,
   },
   scrollContent: {
     paddingHorizontal: 16,

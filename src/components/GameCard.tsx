@@ -10,23 +10,32 @@ export interface Game {
   gameStatus: number; // 1=scheduled, 2=live, 3=finished, 6=postponed
   gameStatusText: string;
   gameEt: string; // Eastern Time string
+  gameEtFormatted: {
+    time: string;
+  }
   homeTeam: {
-    teamId: string;
-    teamName: string;
-    teamCity: string;
-    teamTricode: string;
-    score: number;
+    id: string;
+    name: string;
+    nameZhCN: string;
+    city: string;
+    cityZhCN: string;
+    abbreviation: string;
+    logo: string;
     wins: number;
     losses: number;
+    score: number | null;
   };
   awayTeam: {
-    teamId: string;
-    teamName: string;
-    teamCity: string;
-    teamTricode: string;
-    score: number;
+    id: string;
+    name: string;
+    nameZhCN: string;
+    city: string;
+    cityZhCN: string;
+    abbreviation: string;
+    logo: string;
     wins: number;
     losses: number;
+    score: number | null;
   };
   period: number;
   gameClock: string;
@@ -51,25 +60,21 @@ export const GameCard: React.FC<GameCardProps> = ({ item, index, isDataLoaded })
   if (!isDataLoaded) {
     return (
       <View style={styles.card}>
-        <View style={styles.teamContainer}>
-          <Skeleton width={40} height={40} borderRadius={20} />
-          <View style={styles.teamInfo}>
-            <Skeleton width={50} height={14} marginBottom={4} />
-            <Skeleton width={30} height={12} />
+        <View style={styles.skeletonRow}>
+          <View style={styles.skeletonSide}>
+            <Skeleton width={50} height={50} borderRadius={25} />
+            <Skeleton width={60} height={14} style={{ marginTop: 8 }} />
+            <Skeleton width={40} height={12} style={{ marginTop: 4 }} />
           </View>
-          <Skeleton width={30} height={24} />
-        </View>
-        <View style={styles.divider} />
-        <View style={styles.teamContainer}>
-          <Skeleton width={40} height={40} borderRadius={20} />
-          <View style={styles.teamInfo}>
-            <Skeleton width={50} height={14} marginBottom={4} />
-            <Skeleton width={30} height={12} />
+          <View style={styles.skeletonCenter}>
+             <Skeleton width={80} height={30} borderRadius={4} />
+             <Skeleton width={50} height={16} style={{ marginTop: 8 }} />
           </View>
-          <Skeleton width={30} height={24} />
-        </View>
-        <View style={styles.footer}>
-          <Skeleton width={60} height={12} />
+          <View style={styles.skeletonSide}>
+            <Skeleton width={50} height={50} borderRadius={25} />
+            <Skeleton width={60} height={14} style={{ marginTop: 8 }} />
+            <Skeleton width={40} height={12} style={{ marginTop: 4 }} />
+          </View>
         </View>
       </View>
     );
@@ -77,108 +82,154 @@ export const GameCard: React.FC<GameCardProps> = ({ item, index, isDataLoaded })
 
   // Determine status text color
   let statusColor = COLORS.textSecondary;
+  let statusBg = COLORS.cardSecondary;
+  
   if (item.gameStatus === 2) {
-    statusColor = COLORS.live; // Live red
+    statusColor = '#FFFFFF'; // White text on red bg
+    statusBg = COLORS.live; // Live red
   } else if (item.gameStatus === 3) {
     statusColor = COLORS.textSecondary; // Finished
+    statusBg = COLORS.cardSecondary;
   }
 
   // Format status text
   let statusText = item.gameStatusText;
   if (item.gameStatus === 2) {
     // Live game logic
-    statusText = `Q${item.period} ${item.gameClock}`;
-    if (item.gameClock === '') {
-      statusText = `Q${item.period} End`;
+    if (item.period > 4) {
+      statusText = `加时${item.period - 4}节`;
+    } else {
+      statusText = `第${item.period}节`;
     }
   } else if (item.gameStatus === 1) {
-    // Scheduled: Show time (e.g., 7:30 PM ET)
-    // You might want to convert this to local time if possible, 
-    // but for now displaying the API provided ET time or a localized version is fine.
-    // The API might provide gameEt like "2026-03-05T19:30:00Z" or similar, 
-    // but often it's "7:30 pm ET". Assuming simple string for now.
-    statusText = item.gameStatusText; 
+    // Scheduled
+    statusText = '未开赛'; 
+  } else if (item.gameStatus === 3) {
+    statusText = '已结束';
   }
 
   // Determine winner for bold styling (if finished)
   const isFinished = item.gameStatus === 3;
-  const homeWin = isFinished && item.homeTeam.score > item.awayTeam.score;
-  const awayWin = isFinished && item.awayTeam.score > item.homeTeam.score;
+  const homeScore = item.homeTeam.score || 0;
+  const awayScore = item.awayTeam.score || 0;
+  const homeWin = isFinished && homeScore > awayScore;
+  const awayWin = isFinished && awayScore > homeScore;
+
+  // Use Chinese name if available, otherwise Tricode or Name
+  const homeName = item.homeTeam.nameZhCN || item.homeTeam.name;
+  const awayName = item.awayTeam.nameZhCN || item.awayTeam.name;
+
+  // Determine highlight border color
+  let borderColor = 'transparent';
+  let borderWidth = 0;
+  
+  if (item.isMarquee) {
+    borderColor = COLORS.accent;
+    borderWidth = 1;
+  } else if (item.isOvertime) {
+    borderColor = COLORS.textSecondary; // Subtle highlight for overtime
+    borderWidth = 0.5;
+  } else if (item.isClosest && isFinished) {
+    borderColor = COLORS.textSecondary; // Subtle highlight for close games
+    borderWidth = 0.5;
+  }
+
+  // Determine top-right label
+  let cornerLabel = null;
+  let cornerLabelColor = COLORS.textSecondary;
+  let cornerLabelBg = COLORS.cardSecondary;
+
+  if (item.isMarquee) {
+    cornerLabel = '热门';
+    cornerLabelColor = '#FFFFFF';
+    cornerLabelBg = COLORS.accent;
+  } else if (item.isOvertime) {
+    cornerLabel = '加时';
+    cornerLabelColor = COLORS.textMain;
+    cornerLabelBg = COLORS.cardSecondary;
+  } else if (item.isClosest && isFinished) {
+    cornerLabel = '焦灼';
+    cornerLabelColor = COLORS.textMain;
+    cornerLabelBg = COLORS.cardSecondary;
+  }
 
   return (
     <TouchableOpacity 
-      style={styles.card} 
+      style={[styles.card, { borderColor, borderWidth }]} 
       onPress={handlePress}
       activeOpacity={0.7}
     >
-      {/* Away Team */}
-      <View style={styles.teamRow}>
-        <View style={styles.teamLeft}>
+      {/* Top Right Corner Label */}
+      {cornerLabel && (
+        <View style={[styles.cornerLabel, { backgroundColor: cornerLabelBg }]}>
+          <Text style={[styles.cornerLabelText, { color: cornerLabelColor }]}>{cornerLabel}</Text>
+        </View>
+      )}
+
+      <View style={styles.container}>
+        {/* Left Team (Away) */}
+        <View style={styles.teamColumn}>
           <Image 
-            source={getTeamImage(item.awayTeam.teamTricode)} 
+            source={getTeamImage(item.awayTeam.abbreviation)} 
             style={styles.teamLogo} 
             resizeMode="contain"
           />
-          <View style={styles.teamNameContainer}>
-            <Text style={styles.teamName}>{item.awayTeam.teamTricode}</Text>
-            <Text style={styles.teamRecord}>
-              {item.awayTeam.wins}-{item.awayTeam.losses}
+          <Text style={styles.teamName} numberOfLines={1}>{awayName}</Text>
+          <Text style={styles.teamRecord}>
+            {item.awayTeam.wins}-{item.awayTeam.losses}
+          </Text>
+        </View>
+
+        {/* Center Score & Status */}
+        <View style={styles.centerColumn}>
+          <View style={styles.scoreRow}>
+            <Text style={[
+              styles.score, 
+              awayWin && styles.winnerScore,
+              !isFinished && item.gameStatus !== 2 && styles.scheduledScore
+            ]}>
+              {item.gameStatus === 1 ? '' : awayScore}
+            </Text>
+            <Text style={[
+              styles.scoreDivider,
+              !isFinished && item.gameStatus !== 2 && styles.scheduledScore
+            ]}> - </Text>
+            <Text style={[
+              styles.score, 
+              homeWin && styles.winnerScore,
+              !isFinished && item.gameStatus !== 2 && styles.scheduledScore
+            ]}>
+              {item.gameStatus === 1 ? '' : homeScore}
             </Text>
           </View>
-        </View>
-        <Text style={[
-          styles.score, 
-          awayWin && styles.winnerScore,
-          !isFinished && item.gameStatus !== 2 && styles.scheduledScore // Hide score if scheduled? Usually 0-0 or empty
-        ]}>
-          {item.gameStatus === 1 ? '' : item.awayTeam.score}
-        </Text>
-      </View>
+          {item.gameStatus === 1 && (
+            <View style={styles.statusPill}>
+              <Text style={styles.timeText}>
+                {item.gameEtFormatted?.time || '待定'}
+              </Text>
+            </View>
+          )}
+          <View style={[styles.statusPill, { backgroundColor: statusBg }]}>
+            <Text style={[styles.statusText, { color: statusColor }]}>
+              {statusText}
+            </Text>
+          </View>
 
-      {/* Home Team */}
-      <View style={[styles.teamRow, { marginTop: 12 }]}>
-        <View style={styles.teamLeft}>
+          {/* Badges Row - Removed as we are using corner label now */}
+        </View>
+
+        {/* Right Team (Home) */}
+        <View style={styles.teamColumn}>
           <Image 
-            source={getTeamImage(item.homeTeam.teamTricode)} 
+            source={getTeamImage(item.homeTeam.abbreviation)} 
             style={styles.teamLogo} 
             resizeMode="contain"
           />
-          <View style={styles.teamNameContainer}>
-            <Text style={styles.teamName}>{item.homeTeam.teamTricode}</Text>
-            <Text style={styles.teamRecord}>
-              {item.homeTeam.wins}-{item.homeTeam.losses}
-            </Text>
-          </View>
+          <Text style={styles.teamName} numberOfLines={1}>{homeName}</Text>
+          <Text style={styles.teamRecord}>
+            {item.homeTeam.wins}-{item.homeTeam.losses}
+          </Text>
         </View>
-        <Text style={[
-          styles.score, 
-          homeWin && styles.winnerScore,
-          !isFinished && item.gameStatus !== 2 && styles.scheduledScore
-        ]}>
-          {item.gameStatus === 1 ? '' : item.homeTeam.score}
-        </Text>
-      </View>
-
-      {/* Game Status Footer */}
-      <View style={styles.statusFooter}>
-        <Text style={[styles.statusText, { color: statusColor }]}>
-          {statusText}
-        </Text>
-        {item.isClosest && item.gameStatus === 3 && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>焦灼</Text>
-          </View>
-        )}
-        {item.isOvertime && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>加时</Text>
-          </View>
-        )}
-         {item.isMarquee && (
-          <View style={[styles.badge, styles.marqueeBadge]}>
-            <Text style={[styles.badgeText, styles.marqueeText]}>热门</Text>
-          </View>
-        )}
       </View>
     </TouchableOpacity>
   );
@@ -187,97 +238,111 @@ export const GameCard: React.FC<GameCardProps> = ({ item, index, isDataLoaded })
 const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 20,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
     marginBottom: 12,
   },
-  teamRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  cornerLabel: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    borderTopRightRadius: 20,
+    borderBottomLeftRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    zIndex: 1,
   },
-  teamLeft: {
+  cornerLabelText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  container: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 8, // Add some padding to avoid overlap with label if needed, or rely on layout
+  },
+  teamColumn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  centerColumn: {
+    flex: 1.2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   teamLogo: {
-    width: 40,
-    height: 40,
-    marginRight: 12,
-  },
-  teamNameContainer: {
-    justifyContent: 'center',
+    width: 50,
+    height: 50,
+    marginBottom: 8,
   },
   teamName: {
     color: COLORS.textMain,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-    marginBottom: 2,
+    marginBottom: 4,
+    textAlign: 'center',
   },
   teamRecord: {
     color: COLORS.textSecondary,
     fontSize: 12,
+    textAlign: 'center',
+  },
+  scoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   score: {
     color: COLORS.textMain,
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 28,
+    fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
   winnerScore: {
-    color: COLORS.textMain, // Could be accent or just kept white/bright
-    fontWeight: '800',
+    color: COLORS.textMain,
   },
   scheduledScore: {
     display: 'none',
   },
-  statusFooter: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: COLORS.divider,
-    flexDirection: 'row',
+  timeText: {
+    color: COLORS.textMain,
+    fontSize: 24,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  scoreDivider: {
+    color: COLORS.textSecondary,
+    fontSize: 24,
+    fontWeight: '400',
+    marginHorizontal: 8,
+  },
+  statusPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    minWidth: 60,
     alignItems: 'center',
-    justifyContent: 'space-between', // Changed to space-between to push badges to right if needed, or flex-start
+    justifyContent: 'center',
   },
   statusText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  // Skeleton styles
-  teamContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  teamInfo: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: COLORS.divider,
-    marginVertical: 12,
-  },
-  footer: {
-    marginTop: 8,
-  },
-  badge: {
-    backgroundColor: COLORS.cardSecondary,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginLeft: 8,
-  },
-  badgeText: {
-    color: COLORS.textSecondary,
     fontSize: 11,
     fontWeight: '600',
   },
-  marqueeBadge: {
-    backgroundColor: COLORS.accent,
+  // Skeleton styles
+  skeletonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  marqueeText: {
-    color: COLORS.textMain,
-  }
+  skeletonSide: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  skeletonCenter: {
+    alignItems: 'center',
+    flex: 1.2,
+  },
 });

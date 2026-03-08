@@ -13,7 +13,6 @@ import {
   Animated, 
   Platform 
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { 
@@ -27,6 +26,7 @@ import { COLORS, MOTION } from '../../src/constants/theme';
 import { AnimatedSection } from '../../src/components/AnimatedSection';
 import { Skeleton } from '../../src/components/Skeleton';
 import { ErrorState } from '../../src/components/ErrorState';
+import { DetailScreenHeader } from '../../src/components/DetailScreenHeader';
 
 const { width } = Dimensions.get('window');
 
@@ -193,11 +193,7 @@ export default function TeamDetailScreen() {
     return (
       <View style={styles.container}>
         <View style={[styles.header, { height: HEADER_EXPANDED_HEIGHT + insets.top, paddingTop: insets.top, backgroundColor: COLORS.header }]}>
-          <View style={styles.navBar}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
-              <Ionicons name="chevron-back" size={24} color={COLORS.textMain} />
-            </TouchableOpacity>
-          </View>
+          <DetailScreenHeader onBack={() => router.back()} paddingTop={0}>
           <View style={styles.expandedContent}>
             <View style={styles.headerTop}>
               <Skeleton width={64} height={64} borderRadius={12} />
@@ -208,6 +204,7 @@ export default function TeamDetailScreen() {
               </View>
             </View>
           </View>
+          </DetailScreenHeader>
         </View>
         <ScrollView style={{ marginTop: HEADER_EXPANDED_HEIGHT + insets.top + 20 }} contentContainerStyle={{ padding: 16 }}>
           <Skeleton width="100%" height={120} borderRadius={16} style={{ marginBottom: 24 }} />
@@ -569,19 +566,16 @@ export default function TeamDetailScreen() {
   return (
     <View style={styles.container}>
       <Animated.View style={[styles.header, { height: headerHeight, paddingTop: insets.top, opacity: headerOpacity }]}>
-        <View style={styles.navBar}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
-            <Ionicons name="chevron-back" size={24} color={COLORS.textMain} />
-          </TouchableOpacity>
-          
-          <Animated.View style={[styles.compactHeader, { opacity: collapsedOpacity }]}>
-            <Image source={getTeamImage(team.abbreviation)} style={styles.compactLogo} />
-            <Text style={styles.compactTitle}>{team.nameZhCN || team.name}</Text>
-          </Animated.View>
-          
-          <View style={styles.iconButton} />
-        </View>
-
+        <DetailScreenHeader
+          onBack={() => router.back()}
+          center={
+            <Animated.View style={[styles.compactHeader, { opacity: collapsedOpacity }]}>
+              <Image source={getTeamImage(team.abbreviation)} style={styles.compactLogo} />
+              <Text style={styles.compactTitle}>{team.nameZhCN || team.name}</Text>
+            </Animated.View>
+          }
+          paddingTop={0}
+        >
         <Animated.View style={[styles.expandedContent, { opacity: expandedOpacity }]}>
           <View style={styles.headerTop}>
             <Image source={getTeamImage(team.abbreviation)} style={styles.mainLogo} />
@@ -612,6 +606,7 @@ export default function TeamDetailScreen() {
             }) 
           }]} />
         </View>
+        </DetailScreenHeader>
       </Animated.View>
 
       <Animated.ScrollView

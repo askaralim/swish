@@ -28,10 +28,19 @@ import { AnimatedSection } from '../../src/components/AnimatedSection';
 
 import { Skeleton } from '../../src/components/Skeleton';
 import { ErrorState } from '../../src/components/ErrorState';
+import { DetailScreenHeader } from '../../src/components/DetailScreenHeader';
 
 const { width } = Dimensions.get('window');
 
 const HEADER_EXPANDED_HEIGHT = 180;
+
+const getGisTier = (score: number): string => {
+  if (score >= 30) return 'MVP';
+  if (score >= 22) return '精英';
+  if (score >= 15) return '主力';
+  if (score >= 8) return '影响';
+  return '有限';
+};
 const HEADER_COLLAPSED_HEIGHT = 100;
 
 const AnimatedStatBar = ({ awayPct, homePct, visible }: { awayPct: number, homePct: number, visible: boolean }) => {
@@ -183,7 +192,6 @@ export default function GameDetailScreen() {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<'game' | 'away' | 'home'>('game');
   const [isDataLoaded, setIsDataLoaded] = useState(false);
-
   useEffect(() => {
     setActiveTab('game'); // Reset active tab to 'game' when game ID changes
     tabIndicatorPos.setValue(0); // Reset tab indicator position
@@ -307,11 +315,7 @@ export default function GameDetailScreen() {
     return (
       <View style={styles.container}>
         <View style={[styles.header, { height: HEADER_EXPANDED_HEIGHT + insets.top, paddingTop: insets.top, backgroundColor: COLORS.header }]}>
-          <View style={styles.navBar}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
-              <Ionicons name="chevron-back" size={24} color={COLORS.textMain} />
-            </TouchableOpacity>
-          </View>
+          <DetailScreenHeader onBack={() => router.back()} paddingTop={0}>
           <View style={[styles.scoreboard, { paddingBottom: 48 }]}>
             <View style={styles.teamContainer}>
               <Skeleton width={44} height={44} borderRadius={22} />
@@ -326,6 +330,7 @@ export default function GameDetailScreen() {
               <Skeleton width={60} height={12} style={{ marginTop: 8 }} />
             </View>
           </View>
+          </DetailScreenHeader>
         </View>
         <ScrollView style={{ marginTop: HEADER_EXPANDED_HEIGHT + insets.top + 20 }} contentContainerStyle={{ padding: 16 }}>
           <Skeleton width="100%" height={100} borderRadius={16} style={{ marginBottom: 24 }} />
@@ -758,7 +763,7 @@ export default function GameDetailScreen() {
       {game.boxscore?.gameMVP && !isScheduled && (
         <AnimatedSection index={2} visible={isDataLoaded}>
           <View style={styles.section}>
-            <Text style={styles.sectionHeader}>主宰比赛</Text>
+            <Text style={styles.sectionHeader}>Swish 评分</Text>
             <TouchableOpacity 
               style={styles.mvpCompactCard}
               onPress={() => game.boxscore?.gameMVP?.athleteId && navigateToPlayer(game.boxscore.gameMVP.athleteId)}
@@ -766,10 +771,25 @@ export default function GameDetailScreen() {
               <Image source={{ uri: game.boxscore.gameMVP.headshot }} style={styles.mvpHeadshot} />
               <View style={styles.mvpInfo}>
                 <Text style={styles.mvpName}>{game.boxscore.gameMVP.name}</Text>
+                {game.boxscore.gameMVP.gis != null && (
+                  <View style={styles.gisHighlight}>
+                    <Text style={styles.gisValue}>{game.boxscore.gameMVP.gis}</Text>
+                    <Text style={styles.gisTier}>{getGisTier(Number(game.boxscore.gameMVP.gis))}</Text>
+                  </View>
+                )}
                 <View style={styles.mvpStatsRow}>
-                  <Text style={styles.mvpStatItem}><Text style={styles.white}>{game.boxscore.gameMVP.stats.points}</Text> 得分</Text>
-                  <Text style={styles.mvpStatItem}><Text style={styles.white}>{game.boxscore.gameMVP.stats.rebounds}</Text> 篮板</Text>
-                  <Text style={styles.mvpStatItem}><Text style={styles.white}>{game.boxscore.gameMVP.stats.assists}</Text> 助攻</Text>
+                  <View style={styles.mvpStatBlock}>
+                    <Text style={styles.mvpStatValue}>{game.boxscore.gameMVP.stats.points}</Text>
+                    <Text style={styles.mvpStatLabel}>得分</Text>
+                  </View>
+                  <View style={styles.mvpStatBlock}>
+                    <Text style={styles.mvpStatValue}>{game.boxscore.gameMVP.stats.rebounds}</Text>
+                    <Text style={styles.mvpStatLabel}>篮板</Text>
+                  </View>
+                  <View style={styles.mvpStatBlock}>
+                    <Text style={styles.mvpStatValue}>{game.boxscore.gameMVP.stats.assists}</Text>
+                    <Text style={styles.mvpStatLabel}>助攻</Text>
+                  </View>
                 </View>
               </View>
             </TouchableOpacity>
@@ -1129,34 +1149,31 @@ export default function GameDetailScreen() {
     <View style={styles.container}>
       {/* Animated Sticky Header */}
       <Animated.View style={[styles.header, { height: headerHeight, paddingTop: insets.top, opacity: headerOpacity }]}>
-        <View style={styles.navBar}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
-            <Ionicons name="chevron-back" size={24} color={COLORS.textMain} />
-          </TouchableOpacity>
-          
-          <Animated.View style={[styles.compactScore, { opacity: collapsedOpacity, transform: [{ translateY: collapsedTranslateY }] }]}>
-            <Text style={styles.compactScoreText}>
-              {awayTeam.abbreviation} {awayTeam.score} - {homeTeam.score} {homeTeam.abbreviation}
-            </Text>
-            <View style={styles.liveInfoRow}>
-              <Text style={styles.compactStatus}>
-                {game.gameStatus === 3 ? '已结束' : 
-                 game.gameStatus === 2 ? '直播中' : 
-                 game.gameStatus === 6 ? '延期' : 
-                 game.gameStatus === 1 ? '未开赛' : 
-                 game.gameStatusText.toUpperCase()}
+        <DetailScreenHeader
+          onBack={() => router.back()}
+          center={
+            <Animated.View style={[styles.compactScore, { opacity: collapsedOpacity, transform: [{ translateY: collapsedTranslateY }] }]}>
+              <Text style={styles.compactScoreText}>
+                {awayTeam.abbreviation} {awayTeam.score} - {homeTeam.score} {homeTeam.abbreviation}
               </Text>
-              {game.gameStatus === 2 && (
-                <Text style={styles.compactLiveInfo}>
-                  {game.period > 4 ? `OT${game.period - 4}` : `Q${game.period}`} {game.gameClock}
+              <View style={styles.liveInfoRow}>
+                <Text style={styles.compactStatus}>
+                  {game.gameStatus === 3 ? '已结束' : 
+                   game.gameStatus === 2 ? '' : 
+                   game.gameStatus === 6 ? '延期' : 
+                   game.gameStatus === 1 ? '未开赛' : 
+                   game.gameStatusText.toUpperCase()}
                 </Text>
-              )}
-            </View>
-          </Animated.View>
-          
-          <View style={styles.iconButton} />
-        </View>
-
+                {game.gameStatus === 2 && (
+                  <Text style={styles.compactLiveInfo}>
+                    {game.period > 4 ? `OT${game.period - 4}` : `第${game.period}节`} {game.gameClock}
+                  </Text>
+                )}
+              </View>
+            </Animated.View>
+          }
+          paddingTop={0}
+        >
         {/* Expanded Content */}
         <Animated.View style={[styles.scoreboard, { 
           opacity: expandedOpacity, 
@@ -1178,7 +1195,7 @@ export default function GameDetailScreen() {
             <View style={styles.liveInfoRow}>
               <Text style={styles.gameStatusText}>
                 {game.gameStatus === 3 ? '已结束' : 
-                 game.gameStatus === 2 ? '直播中' : 
+                 game.gameStatus === 2 ? '' : 
                  game.gameStatus === 6 ? '延期' : 
                  game.gameStatus === 1 ? '未开赛' : 
                  game.gameStatusText.toUpperCase()}
@@ -1220,6 +1237,7 @@ export default function GameDetailScreen() {
             }) 
           }]} />
         </View>
+        </DetailScreenHeader>
       </Animated.View>
 
       <Animated.ScrollView
@@ -1436,31 +1454,68 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: COLORS.card,
     borderRadius: 16,
-    padding: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
   },
   mvpHeadshot: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: '#2c2c2e',
-    marginRight: 16,
+    marginRight: 20,
   },
   mvpInfo: {
     flex: 1,
   },
   mvpName: {
     color: COLORS.textMain,
-    fontSize: 17,
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  gisHighlight: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    alignSelf: 'flex-start',
+    gap: 8,
+    marginBottom: 14,
+    backgroundColor: `${COLORS.accent}20`,
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: `${COLORS.accent}40`,
+  },
+  gisValue: {
+    color: COLORS.accent,
+    fontSize: 18,
+    fontWeight: '800',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  gisTier: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
     fontWeight: '600',
-    marginBottom: 4,
   },
   mvpStatsRow: {
     flexDirection: 'row',
-    gap: 16,
+    gap: 24,
   },
-  mvpStatItem: {
+  mvpStatBlock: {
+    alignItems: 'flex-start',
+  },
+  mvpStatValue: {
+    color: COLORS.textMain,
+    fontSize: 20,
+    fontWeight: '800',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  mvpStatLabel: {
     color: COLORS.textSecondary,
-    fontSize: 12,
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
   },
   perfCard: {
     backgroundColor: COLORS.card,
