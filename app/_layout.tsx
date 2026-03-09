@@ -101,6 +101,7 @@ export default function RootLayout() {
           name="news"
           options={{
             title: '新闻',
+            href: null, // Hidden for App Store resubmission (legal)
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="newspaper-outline" size={size} color={color} />
             ),
