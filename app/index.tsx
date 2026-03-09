@@ -381,14 +381,17 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <ScreenHeader
         title="唰！"
-        subtitle={formatFullChineseDate(selectedDate)}
+        // subtitle={formatFullChineseDate(selectedDate)}
         insetsTop={insets.top}
         rightElement={
-          <Link href="/fullgames" asChild>
-            <TouchableOpacity style={styles.viewAllIcon} activeOpacity={0.7}>
-              <Ionicons name="calendar-outline" size={22} color={COLORS.textSecondary} />
-            </TouchableOpacity>
-          </Link>
+          <View style={styles.headerDateRow}>
+            <Text style={styles.dateText}>{formatFullChineseDate(selectedDate)}</Text>
+            <Link href="/fullgames" asChild>
+              <TouchableOpacity style={styles.viewAllIcon} activeOpacity={0.7}>
+                <Ionicons name="calendar-outline" size={18} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </Link>
+          </View>
         }
       />
       <ScrollView
@@ -580,6 +583,11 @@ const styles = StyleSheet.create({
   viewAllIcon: {
     padding: 4,
   },
+  headerDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   list: {
     paddingHorizontal: 16,
   },
@@ -590,6 +598,11 @@ const styles = StyleSheet.create({
   emptyStateText: {
     color: COLORS.textSecondary,
     fontSize: 14,
+  },
+  dateText: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    fontWeight: '500',
   },
   // Game Card Styles (Reused)
   gameCard: {
