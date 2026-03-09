@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ViewStyle } from 'react-native';
+import { View, Text, Image, StyleSheet } from 'react-native';
 import { COLORS } from '../constants/theme';
 
 interface ScreenHeaderProps {
@@ -17,6 +17,7 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({
 }) => (
   <View style={[styles.header, { paddingTop: insetsTop }]}>
     <View style={styles.titleBlock}>
+      <Image source={require('../../assets/images/icon-swish-not-rounded.png')} style={styles.logo} />
       <Text style={styles.title}>{title}</Text>
       {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
     </View>
@@ -37,6 +38,13 @@ const styles = StyleSheet.create({
   },
   titleBlock: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  logo: {
+    width: 28,
+    height: 28,
   },
   title: {
     color: COLORS.textMain,

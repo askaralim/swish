@@ -31,8 +31,8 @@ import { ErrorState } from '../../src/components/ErrorState';
 import { DetailScreenHeader } from '../../src/components/DetailScreenHeader';
 
 const { width } = Dimensions.get('window');
-const HEADER_EXPANDED_HEIGHT = 220;
-const HEADER_COLLAPSED_HEIGHT = 110;
+const HEADER_EXPANDED_HEIGHT = 180;
+const HEADER_COLLAPSED_HEIGHT = 96;
 
 export default function PlayerDetailScreen() {
   const { id: playerId } = useLocalSearchParams<{ id: string }>();
@@ -133,7 +133,7 @@ export default function PlayerDetailScreen() {
           <DetailScreenHeader onBack={() => router.back()} paddingTop={0}>
           <View style={styles.expandedContent}>
             <View style={styles.headerTop}>
-              <Skeleton width={100} height={100} borderRadius={50} />
+              <Skeleton width={80} height={80} borderRadius={40} />
               <View style={styles.headerInfo}>
                 <Skeleton width={80} height={12} />
                 <Skeleton width={150} height={28} style={{ marginTop: 8 }} />
@@ -143,7 +143,7 @@ export default function PlayerDetailScreen() {
           </View>
           </DetailScreenHeader>
         </View>
-        <ScrollView style={{ marginTop: HEADER_EXPANDED_HEIGHT + insets.top + 20 }} contentContainerStyle={{ padding: 16 }}>
+        <ScrollView style={{ marginTop: HEADER_EXPANDED_HEIGHT + insets.top + 12 }} contentContainerStyle={{ padding: 16 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24 }}>
             {[1, 2, 3, 4].map(i => (
               <Skeleton key={i} width={(width - 64) / 4} height={60} borderRadius={12} />
@@ -435,7 +435,7 @@ export default function PlayerDetailScreen() {
               </View>
               <Text style={styles.playerNameMain}>{details.name}</Text>
               <Text style={styles.playerMeta}>
-                #{details.jersey?.replace('##', '') || '-'} • {details.position || '-'}
+                {details.jersey?.replace('##', '') || '-'} • {details.position || '-'}
               </Text>
             </View>
           </View>
@@ -471,7 +471,7 @@ export default function PlayerDetailScreen() {
           { useNativeDriver: false }
         )}
         scrollEventThrottle={16}
-        contentContainerStyle={{ paddingTop: HEADER_EXPANDED_HEIGHT + insets.top + 20 }}
+        contentContainerStyle={{ paddingTop: HEADER_EXPANDED_HEIGHT + insets.top + 12 }}
         showsVerticalScrollIndicator={false}
       >
         <Animated.View style={{ 
@@ -553,19 +553,20 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   expandedContent: {
-    height: HEADER_EXPANDED_HEIGHT - 64, // Leave space for navBar
-    paddingHorizontal: 20,
-    justifyContent: 'center',
+    height: HEADER_EXPANDED_HEIGHT - 46,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    justifyContent: 'flex-start',
   },
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 20,
+    gap: 16,
   },
   photoContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: '#1c1c1e',
     overflow: 'hidden',
     borderWidth: 2,
@@ -582,7 +583,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   teamLogo: {
     width: 20,
@@ -595,7 +596,7 @@ const styles = StyleSheet.create({
   },
   playerNameMain: {
     color: COLORS.textMain,
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '700',
     letterSpacing: -0.5,
   },

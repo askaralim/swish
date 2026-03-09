@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useState, useMemo, useEffect } from 'react';
 import { 
   View, 
@@ -70,23 +70,26 @@ export default function HomeScreen() {
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   // 1. Fetch Today's Top Performers
-  const { data: topPerformersData, isLoading: isLoadingPerformers, refetch: refetchPerformers } = useQuery({
+  const { data: topPerformersData, refetch: refetchPerformers, isRefetching: isRefetchingPerformers } = useQuery({
     queryKey: ['todayTopPerformers', formatDateForAPI(selectedDate)],
     queryFn: () => fetchTodayTopPerformers(selectedDate),
     staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 
   // 2. Fetch Season Leaders
-  const { data: seasonLeadersData, isLoading: isLoadingSeasonLeaders } = useQuery({
+  const { data: seasonLeadersData } = useQuery({
     queryKey: ['seasonLeaders'],
     queryFn: fetchSeasonLeaders,
     staleTime: 60 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 
   // 3. Fetch Games (Featured)
-  const { data: gamesResponse, isLoading: isLoadingGames, error: gamesError, refetch: refetchGames, isRefetching: isRefetchingGames } = useQuery({
+  const { data: gamesResponse, error: gamesError, refetch: refetchGames, isRefetching: isRefetchingGames } = useQuery({
     queryKey: ['games', formatDateForAPI(selectedDate), 'featured'],
     queryFn: () => fetchGames(selectedDate, true),
+    placeholderData: keepPreviousData,
     refetchInterval: (query) => {
       const data = query.state.data as any;
       const games = data?.games || [];
@@ -100,15 +103,34 @@ export default function HomeScreen() {
   };
 
   useEffect(() => {
-    if (!isLoadingGames && gamesResponse) {
+    if (gamesResponse) {
       setIsDataLoaded(true);
     }
-  }, [isLoadingGames, gamesResponse]);
+  }, [gamesResponse]);
 
-  // Process Top Performers
+  // Process Top Performers (GIS-based or legacy)
   const topPerformers = useMemo(() => {
-    if (!topPerformersData) return { points: [], rebounds: [], assists: [] };
-    
+    if (!topPerformersData) return { performers: [], isGis: false };
+
+    if (topPerformersData.mode === 'gis' && Array.isArray(topPerformersData.performers)) {
+      return {
+        performers: topPerformersData.performers.slice(0, 5).map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          teamAbbreviation: p.teamAbbreviation || '',
+          teamNameZhCN: p.teamNameZhCN,
+          competitionId: p.competitionId || '',
+          headshot: p.headshot || '',
+          value: p.gis ?? 0,
+          statType: 'gis' as const,
+          gis: p.gis,
+          stats: p.stats,
+          insight: p.insight,
+        })),
+        isGis: true,
+      };
+    }
+
     const processCategory = (list: any[], type: TopPerformer['statType']) => {
       if (!list) return [];
       return list.slice(0, 5).map((p: any) => ({
@@ -124,9 +146,11 @@ export default function HomeScreen() {
     };
 
     return {
+      performers: [],
       points: processCategory(topPerformersData.points, 'points'),
       rebounds: processCategory(topPerformersData.rebounds, 'rebounds'),
       assists: processCategory(topPerformersData.assists, 'assists'),
+      isGis: false,
     };
   }, [topPerformersData]);
 
@@ -304,28 +328,38 @@ export default function HomeScreen() {
     );
   };
 
-  const renderPerformerSection = (title: string, data: TopPerformer[], showCompare: boolean = true) => {
+  const renderPerformerSection = (title: string, data: TopPerformer[], showCompare: boolean = true, useListLayout: boolean = false, variant: 'today' | 'season' = 'today') => {
     if (!data || data.length === 0) return null;
+    const cardProps = (performer: TopPerformer) => ({
+      performer,
+      onCompare: handleCompare,
+      showCompare,
+      listLayout: useListLayout,
+      variant,
+      onPress: (_id: string) => {
+        if (showCompare && performer.competitionId) {
+          router.push(`/game/${performer.competitionId}`);
+        } else {
+          router.push(`/player/${performer.id}`);
+        }
+      },
+    });
     return (
       <View style={{ marginBottom: 24 }}>
-        <Text style={styles.performerSectionTitle}>{title}</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.performerList}>
-          {data.map((performer) => (
-            <HomePlayerCard 
-              key={performer.id} 
-              performer={performer} 
-              onCompare={handleCompare}
-              showCompare={showCompare}
-              onPress={(id) => {
-                if (showCompare && performer.competitionId) {
-                  router.push(`/game/${performer.competitionId}`);
-                } else {
-                  router.push(`/player/${id}`);
-                }
-              }}
-            />
-          ))}
-        </ScrollView>
+        {title ? <Text style={styles.performerSectionTitle}>{title}</Text> : null}
+        {useListLayout ? (
+          <View style={styles.performerListVertical}>
+            {data.map((performer) => (
+              <HomePlayerCard key={performer.id} {...cardProps(performer)} />
+            ))}
+          </View>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.performerList}>
+            {data.map((performer) => (
+              <HomePlayerCard key={performer.id} {...cardProps(performer)} />
+            ))}
+          </ScrollView>
+        )}
       </View>
     );
   };
@@ -339,12 +373,14 @@ export default function HomeScreen() {
   const totalGamesCount = gamesResponse?.totalGames || 0;
   const featuredCount = featuredGamesRaw.length;
 
-  const hasTopPerformers = topPerformers.points.length > 0 || topPerformers.rebounds.length > 0 || topPerformers.assists.length > 0;
+  const hasTopPerformers = topPerformers.isGis
+    ? topPerformers.performers.length > 0
+    : ((topPerformers.points?.length ?? 0) > 0 || (topPerformers.rebounds?.length ?? 0) > 0 || (topPerformers.assists?.length ?? 0) > 0);
 
   return (
     <View style={styles.container}>
       <ScreenHeader
-        title="唰！Swish"
+        title="唰！"
         subtitle={formatFullChineseDate(selectedDate)}
         insetsTop={insets.top}
         rightElement={
@@ -361,7 +397,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={isRefetchingGames}
+            refreshing={isRefetchingGames || isRefetchingPerformers}
             onRefresh={onManualRefresh}
             tintColor={COLORS.accent}
           />
@@ -369,9 +405,9 @@ export default function HomeScreen() {
       >
 
         {/* Top Performers Sections */}
-        {isLoadingPerformers ? (
+        {!topPerformersData ? (
           <View style={{ padding: 16 }}>
-             <Skeleton width={150} height={20} marginBottom={12} />
+             <Skeleton width={150} height={20} marginBottom={14} />
              <View style={{ flexDirection: 'row' }}>
                <Skeleton width={160} height={140} borderRadius={16} marginRight={12} />
                <Skeleton width={160} height={140} borderRadius={16} />
@@ -380,16 +416,24 @@ export default function HomeScreen() {
         ) : hasTopPerformers ? (
           <>
             <View style={styles.performerSection}>
-              <Text style={styles.performerSectionHeader}>今日 TOP3!</Text>
+              <Text style={styles.performerSectionHeader}>
+                <Ionicons name="flame" size={20} color={COLORS.accent} /> {'Swish 今日 TOP 3'}
+              </Text>
             </View>
-            {renderPerformerSection('得分', topPerformers.points)}
-            {renderPerformerSection('篮板', topPerformers.rebounds)}
-            {renderPerformerSection('助攻', topPerformers.assists)}
+            {topPerformers.isGis ? (
+              renderPerformerSection('', topPerformers.performers, true, true)
+            ) : (
+              <>
+                {renderPerformerSection('得分', topPerformers.points ?? [])}
+                {renderPerformerSection('篮板', topPerformers.rebounds ?? [])}
+                {renderPerformerSection('助攻', topPerformers.assists ?? [])}
+              </>
+            )}
           </>
         ) : null}
 
         {/* Season Leaders Sections */}
-        {isLoadingSeasonLeaders ? (
+        {!seasonLeadersData ? (
           <View style={{ padding: 16 }}>
              <Skeleton width={150} height={20} marginBottom={12} />
              <View style={{ flexDirection: 'row' }}>
@@ -399,12 +443,18 @@ export default function HomeScreen() {
           </View>
         ) : (
           <>
-            <View style={styles.performerSection}>
-              <Text style={styles.performerSectionHeader}>赛季 TOP3!</Text>
-            </View>
-            {renderPerformerSection('得分', seasonLeaders.points, false)}
-            {renderPerformerSection('篮板', seasonLeaders.rebounds, false)}
-            {renderPerformerSection('助攻', seasonLeaders.assists, false)}
+            <TouchableOpacity
+              style={styles.sectionHeaderAction}
+              onPress={() => router.push('/players')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.sectionHeaderActionTitle}>赛季 TOP 3</Text>
+              <Text style={styles.sectionHeaderActionLink}>查看赛季</Text>
+              <Ionicons name="chevron-forward" size={18} color={COLORS.accent} />
+            </TouchableOpacity>
+            {renderPerformerSection('得分', seasonLeaders.points, false, false, 'season')}
+            {renderPerformerSection('篮板', seasonLeaders.rebounds, false, false, 'season')}
+            {renderPerformerSection('助攻', seasonLeaders.assists, false, false, 'season')}
             
             {(!seasonLeaders.points.length && !seasonLeaders.rebounds.length && !seasonLeaders.assists.length) && (
               <View style={styles.emptyStateContainer}>
@@ -418,7 +468,7 @@ export default function HomeScreen() {
         <View style={styles.sectionHeader}>
           <View>
             <Text style={styles.sectionTitle}>今日比赛</Text>
-            {!isLoadingGames && (
+            {gamesResponse && (
               <Text style={styles.gameCountText}>
                 · {totalGamesCount} 场比赛 · {featuredCount > 0 ? `${featuredCount} 焦点` : ''}
               </Text>
@@ -427,7 +477,7 @@ export default function HomeScreen() {
          
         </View>
 
-        {isLoadingGames ? (
+        {!gamesResponse && !gamesError ? (
           <View style={styles.list}>
             {[1, 2].map((i) => (
               <View key={i} style={styles.skeletonCard}>
@@ -466,7 +516,26 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bg,
   },
   performerSection: {
-    marginTop: 12,
+    marginTop: 16,
+  },
+  sectionHeaderAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginTop: 24,
+    marginBottom: 16,
+    gap: 6,
+  },
+  sectionHeaderActionTitle: {
+    flex: 1,
+    color: COLORS.textMain,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  sectionHeaderActionLink: {
+    color: COLORS.accent,
+    fontSize: 14,
+    fontWeight: '600',
   },
   performerSectionHeader: {
     color: COLORS.textMain,
@@ -484,6 +553,9 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   performerList: {
+    paddingHorizontal: 16,
+  },
+  performerListVertical: {
     paddingHorizontal: 16,
   },
   sectionHeader: {

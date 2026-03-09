@@ -11,7 +11,8 @@ import {
   ActivityIndicator,
   Dimensions,
   Animated,
-  Platform
+  Platform,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -35,10 +36,10 @@ const { width } = Dimensions.get('window');
 const HEADER_EXPANDED_HEIGHT = 180;
 
 const getGisTier = (score: number): string => {
-  if (score >= 30) return 'MVP';
-  if (score >= 22) return '精英';
-  if (score >= 15) return '主力';
-  if (score >= 8) return '影响';
+  if (score >= 30) return 'MVP表现';
+  if (score >= 22) return '精英表现';
+  if (score >= 15) return '主力表现';
+  if (score >= 8) return '影响比赛';
   return '有限';
 };
 const HEADER_COLLAPSED_HEIGHT = 100;
@@ -763,7 +764,16 @@ export default function GameDetailScreen() {
       {game.boxscore?.gameMVP && !isScheduled && (
         <AnimatedSection index={2} visible={isDataLoaded}>
           <View style={styles.section}>
-            <Text style={styles.sectionHeader}>Swish 评分</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={[styles.sectionHeader, { marginBottom: 0 }]}>Swish 评分</Text>
+              <TouchableOpacity
+                onPress={() => Alert.alert('Swish 评分', '比赛影响力评分用于衡量一名球员在一场比赛中的整体贡献，综合考虑得分、组织进攻、防守以及效率等因素。')}
+                style={{ marginLeft: 6 }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="information-circle-outline" size={20} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
             <TouchableOpacity 
               style={styles.mvpCompactCard}
               onPress={() => game.boxscore?.gameMVP?.athleteId && navigateToPlayer(game.boxscore.gameMVP.athleteId)}
@@ -789,6 +799,18 @@ export default function GameDetailScreen() {
                   <View style={styles.mvpStatBlock}>
                     <Text style={styles.mvpStatValue}>{game.boxscore.gameMVP.stats.assists}</Text>
                     <Text style={styles.mvpStatLabel}>助攻</Text>
+                  </View>
+                  <View style={styles.mvpStatBlock}>
+                    <Text style={styles.mvpStatValue}>{game.boxscore.gameMVP.stats.steals}</Text>
+                    <Text style={styles.mvpStatLabel}>抢断</Text>
+                  </View>
+                  <View style={styles.mvpStatBlock}>
+                    <Text style={styles.mvpStatValue}>{game.boxscore.gameMVP.stats.blocks}</Text>
+                    <Text style={styles.mvpStatLabel}>盖帽</Text>
+                  </View>
+                  <View style={styles.mvpStatBlock}>
+                    <Text style={styles.mvpStatValue}>{game.boxscore.gameMVP.stats.turnovers}</Text>
+                    <Text style={styles.mvpStatLabel}>失误</Text>
                   </View>
                 </View>
               </View>
@@ -1500,7 +1522,7 @@ const styles = StyleSheet.create({
   },
   mvpStatsRow: {
     flexDirection: 'row',
-    gap: 24,
+    gap: 20,
   },
   mvpStatBlock: {
     alignItems: 'flex-start',

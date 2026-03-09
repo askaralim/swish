@@ -26,6 +26,14 @@ import { Skeleton } from '@/src/components/Skeleton';
 
 const { width } = Dimensions.get('window');
 
+const getGisTier = (score: number): string => {
+  if (score >= 30) return 'MVP表现';
+  if (score >= 22) return '精英表现';
+  if (score >= 15) return '主力表现';
+  if (score >= 8) return '影响比赛';
+  return '有限';
+};
+
 export default function PlayerGamePerformanceScreen() {
   const { id, playerId } = useLocalSearchParams<{ id: string, playerId: string }>();
   const router = useRouter();
@@ -201,8 +209,19 @@ export default function PlayerGamePerformanceScreen() {
             {/* Game Result */}
             <View style={styles.gameInfo}>
               <Text style={styles.gameScore}>{playerStats.gameScore}</Text>
-              <Text style={styles.gameStatus}>{game?.gameStatus === 3 ? '已结束' : game?.gameStatus === 2 ? '直播中' : game?.gameStatusText.toUpperCase()}</Text>
+              <Text style={styles.gameStatus}>{game?.gameStatus === 3 ? '已结束' : game?.gameStatus === 2 ? '直播中' : game?.gameStatusText?.toUpperCase()}</Text>
             </View>
+
+            {/* GIS Highlight */}
+            {playerStats.gis != null && (
+              <View style={styles.gisHighlight}>
+                <Text style={styles.gisLabel}>Swish 评分</Text>
+                <Text style={styles.gisValue}>{playerStats.gis}</Text>
+                <View>
+                  <Text style={styles.gisTier}>{getGisTier(playerStats.gis)}</Text>
+                </View>
+              </View>
+            )}
 
             {/* Main Stats Grid */}
             <View style={styles.statsGrid}>
@@ -429,6 +448,42 @@ const styles = StyleSheet.create({
   gameStatus: {
     color: COLORS.textSecondary,
     fontSize: 12,
+    marginTop: 2,
+  },
+  gisHighlight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 10,
+    marginBottom: 24,
+    backgroundColor: `${COLORS.accent}25`,
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderWidth: 1.5,
+    borderColor: `${COLORS.accent}50`,
+  },
+  gisLabel: {
+    color: COLORS.accent,
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  gisValue: {
+    color: COLORS.accent,
+    fontSize: 22,
+    fontWeight: '800',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  gisTier: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  gisSubtext: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    fontWeight: '500',
     marginTop: 2,
   },
   statsGrid: {
