@@ -571,7 +571,7 @@ export default function TeamDetailScreen() {
           center={
             <Animated.View style={[styles.compactHeader, { opacity: collapsedOpacity }]}>
               <Image source={getTeamImage(team.abbreviation)} style={styles.compactLogo} />
-              <Text style={styles.compactTitle}>{team.nameZhCN || team.name}</Text>
+              <Text style={styles.compactTitle} numberOfLines={1} ellipsizeMode="tail">{team.nameZhCN || team.name}</Text>
             </Animated.View>
           }
           paddingTop={0}
@@ -580,9 +580,9 @@ export default function TeamDetailScreen() {
           <View style={styles.headerTop}>
             <Image source={getTeamImage(team.abbreviation)} style={styles.mainLogo} />
             <View style={styles.headerInfo}>
-              <Text style={styles.teamCity}>{team.cityZhCN || team.city}</Text>
-              <Text style={styles.teamNameMain}>{team.nameZhCN || team.name}</Text>
-              <Text style={styles.teamRecord}>{team.record} • {team.standingSummary}</Text>
+              <Text style={styles.teamCity} numberOfLines={1}>{team.cityZhCN || team.city}</Text>
+              <Text style={styles.teamNameMain} numberOfLines={2}>{team.nameZhCN || team.name}</Text>
+              <Text style={styles.teamRecord} numberOfLines={1}>{team.record} • {team.standingSummary}</Text>
             </View>
           </View>
         </Animated.View>
@@ -680,6 +680,7 @@ const styles = StyleSheet.create({
   compactLogo: {
     width: 24,
     height: 24,
+    flexShrink: 0,
   },
   compactTitle: {
     color: COLORS.textMain,
@@ -699,9 +700,11 @@ const styles = StyleSheet.create({
   mainLogo: {
     width: 64,
     height: 64,
+    flexShrink: 0,
   },
   headerInfo: {
     flex: 1,
+    minWidth: 0,
   },
   teamCity: {
     color: COLORS.textSecondary,

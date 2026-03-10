@@ -420,7 +420,7 @@ export default function HomeScreen() {
           <>
             <View style={styles.performerSection}>
               <Text style={styles.performerSectionHeader}>
-                <Ionicons name="flame" size={20} color={COLORS.accent} /> {'Swish 今日 TOP 3'}
+                <Ionicons name="flame" size={20} color={COLORS.accent} /> {'Swish 今日表现'}
               </Text>
             </View>
             {topPerformers.isGis ? (

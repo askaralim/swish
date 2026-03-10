@@ -48,13 +48,16 @@ interface GameCardProps {
   item: Game;
   index: number;
   isDataLoaded: boolean;
+  /** When set, passed as query param so game detail can navigate back here (e.g. "fullgames"). */
+  fromScreen?: string;
 }
 
-export const GameCard: React.FC<GameCardProps> = ({ item, index, isDataLoaded }) => {
+export const GameCard: React.FC<GameCardProps> = ({ item, index, isDataLoaded, fromScreen }) => {
   const router = useRouter();
 
   const handlePress = () => {
-    router.push(`/game/${item.gameId}`);
+    const path = fromScreen ? `/game/${item.gameId}?from=${encodeURIComponent(fromScreen)}` : `/game/${item.gameId}`;
+    router.push(path);
   };
 
   if (!isDataLoaded) {

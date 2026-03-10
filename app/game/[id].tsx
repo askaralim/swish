@@ -188,8 +188,16 @@ interface GameDetail {
 }
 
 export default function GameDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
   const router = useRouter();
+
+  const handleBack = () => {
+    if (from === 'fullgames') {
+      router.replace('/fullgames');
+    } else {
+      router.back();
+    }
+  };
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<'game' | 'away' | 'home'>('game');
   const [isDataLoaded, setIsDataLoaded] = useState(false);
@@ -315,7 +323,7 @@ export default function GameDetailScreen() {
     return (
       <View style={styles.container}>
         <View style={[styles.header, { height: HEADER_EXPANDED_HEIGHT + insets.top, paddingTop: insets.top, backgroundColor: COLORS.header }]}>
-          <DetailScreenHeader onBack={() => router.back()} paddingTop={0}>
+          <DetailScreenHeader onBack={handleBack} paddingTop={0}>
           <View style={[styles.scoreboard, { paddingBottom: 48 }]}>
             <View style={styles.teamContainer}>
               <Skeleton width={44} height={44} borderRadius={22} />
@@ -1171,7 +1179,7 @@ export default function GameDetailScreen() {
       {/* Animated Sticky Header */}
       <Animated.View style={[styles.header, { height: headerHeight, paddingTop: insets.top, opacity: headerOpacity }]}>
         <DetailScreenHeader
-          onBack={() => router.back()}
+          onBack={handleBack}
           center={
             <Animated.View style={[styles.compactScore, { opacity: collapsedOpacity, transform: [{ translateY: collapsedTranslateY }] }]}>
               <Text style={styles.compactScoreText}>

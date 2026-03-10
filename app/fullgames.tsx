@@ -292,7 +292,7 @@ export default function FullGamesScreen() {
         <FlatList
           data={sortedAndFilteredGames}
           renderItem={({ item, index }) => (
-            <GameCard item={item} index={index} isDataLoaded={true} />
+            <GameCard item={item} index={index} isDataLoaded={true} fromScreen="fullgames" />
           )}
           keyExtractor={(item) => item.gameId}
           contentContainerStyle={styles.list}
