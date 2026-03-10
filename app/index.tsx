@@ -94,7 +94,7 @@ export default function HomeScreen() {
       const data = query.state.data as any;
       const games = data?.games || [];
       const hasLiveGames = games.some((g: any) => g.gameStatus === 2);
-      return hasLiveGames ? 15000 : false;
+      return hasLiveGames ? 60000 : false;
     },
   });
 

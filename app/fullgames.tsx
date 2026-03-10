@@ -84,7 +84,7 @@ export default function FullGamesScreen() {
     refetchInterval: (query) => {
       const games = query.state.data?.games || [];
       const hasLiveGames = games.some((g: any) => g.gameStatus === 2);
-      return hasLiveGames ? 15000 : false;
+      return hasLiveGames ? 45000 : false;
     },
     staleTime: (query) => {
       const games = query.state.data?.games || [];

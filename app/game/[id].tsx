@@ -210,8 +210,7 @@ export default function GameDetailScreen() {
     queryFn: () => fetchGameDetail(id),
     refetchInterval: (query) => {
       const data = query.state.data as GameDetail | undefined;
-      // Refresh every 10s if live (status 2)
-      return data?.gameStatus === 2 ? 10000 : false;
+      return data?.gameStatus === 2 ? 15000 : false;
     },
     // Ensure we don't use cached data when it's live
     staleTime: (query) => {

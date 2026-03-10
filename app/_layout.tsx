@@ -10,8 +10,13 @@ import NetInfo from '@react-native-community/netinfo';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 3,
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+      retry: (failureCount, error: Error) => {
+        if (error?.message?.includes('Too many requests')) {
+          return failureCount < 3;
+        }
+        return failureCount < 2;
+      },
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 60000),
       staleTime: 5000,
       refetchOnWindowFocus: true,
       refetchOnReconnect: true,
@@ -73,7 +78,7 @@ export default function RootLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: '比赛',
+            title: '主页',
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="basketball-outline" size={size} color={color} />
             ),
