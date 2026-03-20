@@ -30,9 +30,9 @@ interface HomePlayerCardProps {
 export const HomePlayerCard: React.FC<HomePlayerCardProps> = ({ performer, onCompare, onPress, showCompare = true, listLayout = false, variant = 'today' }) => {
   const statLabel = () => {
     switch (performer.statType) {
-      case 'points': return 'PTS';
-      case 'rebounds': return 'REB';
-      case 'assists': return 'AST';
+      case 'points': return '得分';
+      case 'rebounds': return '篮板';
+      case 'assists': return '助攻';
       case 'gis': return 'GIS';
       default: return '';
     }
@@ -42,8 +42,8 @@ export const HomePlayerCard: React.FC<HomePlayerCardProps> = ({ performer, onCom
   const hasStats = stats && (stats.points != null || stats.rebounds != null || stats.assists != null);
   const statItems: { value: number; unit: string }[] = hasStats
     ? [
-        { value: stats!.points ?? 0, unit: 'PTS' },
-        { value: stats!.rebounds ?? 0, unit: 'REB' },
+        { value: stats!.points ?? 0, unit: '得分' },
+        { value: stats!.rebounds ?? 0, unit: '篮板' },
         { value: stats!.assists ?? 0, unit: 'AST' },
       ]
     : [];
@@ -62,6 +62,13 @@ export const HomePlayerCard: React.FC<HomePlayerCardProps> = ({ performer, onCom
 
   const isSeasonVariant = variant === 'season';
 
+  const getInitials = (name: string) => {
+    if (!name) return '';
+    const parts = name.split(' ');
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    return name.substring(0, 2).toUpperCase();
+  };
+
   return (
     <View style={[styles.card, listLayout && styles.cardListLayout, isSeasonVariant && styles.cardSeason]}>
       {/* Row 1: Identity + (today: value on right | season: identity only) */}
@@ -71,7 +78,10 @@ export const HomePlayerCard: React.FC<HomePlayerCardProps> = ({ performer, onCom
           activeOpacity={0.7}
           onPress={handleNameAreaPress}
         >
-          <Image source={{ uri: performer.headshot }} style={styles.avatar} />
+          {/* <Image source={{ uri: performer.headshot }} style={styles.avatar} /> */}
+          <View style={styles.initialsAvatar}>
+            <Text style={styles.initialsText}>{getInitials(performer.name)}</Text>
+          </View>
           <View style={styles.infoContainer}>
             <Text style={[styles.name, isSeasonVariant && styles.nameSeason]} numberOfLines={1}>{performer.name}</Text>
             <Text style={[styles.team, isSeasonVariant && styles.teamSeason]}>{performer.teamNameZhCN || performer.teamAbbreviation}</Text>
@@ -85,7 +95,7 @@ export const HomePlayerCard: React.FC<HomePlayerCardProps> = ({ performer, onCom
             onPress={() => onCompare(performer.id, isGis ? 'points' : performer.statType)}
           >
             <Ionicons name="git-compare-outline" size={isSeasonVariant ? 16 : 14} color={isSeasonVariant ? COLORS.textMain : COLORS.accent} style={styles.compareIcon} />
-            <Text style={[styles.compareText, isSeasonVariant && styles.compareTextSeason]}>球员比较</Text>
+            <Text style={[styles.compareText, isSeasonVariant && styles.compareTextSeason]}>对比</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -168,6 +178,21 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: COLORS.header,
     marginRight: 10,
+  },
+  initialsAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  initialsText: {
+    color: COLORS.textSecondary,
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 1,
   },
   infoContainer: {
     flex: 1,

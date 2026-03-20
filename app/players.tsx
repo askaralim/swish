@@ -71,12 +71,12 @@ export default function PlayersStatsScreen() {
           </View>
         </View>
 
-        <View style={styles.cardAvatarContainer}>
+        {/* <View style={styles.cardAvatarContainer}>
           <Image 
             source={{ uri: player.headshot || `https://a.espncdn.com/i/headshots/nba/600/${player.id}.png` }} 
             style={styles.playerAvatar} 
           />
-        </View>
+        </View> */}
 
         <View style={styles.cardInfo}>
           <Text style={styles.playerName} numberOfLines={1}>{player.name}</Text>
@@ -135,7 +135,7 @@ export default function PlayersStatsScreen() {
     return (
       <View style={styles.container}>
         <ScreenHeader
-          title="球员数据榜"
+          title="赛季表现"
           subtitle="2025-26 赛季 • 常规赛"
           insetsTop={insets.top}
         />
@@ -173,7 +173,7 @@ export default function PlayersStatsScreen() {
   return (
     <View style={styles.container}>
       <ScreenHeader
-        title="球员数据榜"
+        title="赛季表现"
         subtitle={data?.metadata ? `${data.metadata.season} • ${data.metadata.seasonType}` : undefined}
         insetsTop={insets.top}
       />
@@ -300,10 +300,10 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
   },
   playerAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#2c2c2e',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.header,
   },
   cardInfo: {
     flex: 1,

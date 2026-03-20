@@ -195,7 +195,12 @@ export default function PlayerGamePerformanceScreen() {
             {/* Header: Player Info */}
             <View style={styles.cardHeader}>
               <View style={styles.playerIdentity}>
-                <Image source={{ uri: playerStats.headshot }} style={styles.headshot} />
+                {/* <Image source={{ uri: playerStats.headshot }} style={styles.headshot} /> */}
+                <View style={styles.initialsHero}>
+                  <Text style={styles.initialsHeroText}>
+                    {playerStats.name ? playerStats.name.split(' ').map((n: string) => n[0]).join('').substring(0,2).toUpperCase() : '-'}
+                  </Text>
+                </View>
                 <View style={styles.nameRow}>
                   <Text style={styles.playerName}>{playerStats.name}</Text>
                   <Text style={styles.playerMeta}>
@@ -417,6 +422,21 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     backgroundColor: '#1C1C1E',
     marginRight: 16,
+  },
+  initialsHero: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 20,
+  },
+  initialsHeroText: {
+    color: COLORS.textSecondary,
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: 2,
   },
   nameRow: {
     justifyContent: 'center',

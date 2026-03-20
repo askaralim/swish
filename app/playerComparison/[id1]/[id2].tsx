@@ -384,7 +384,13 @@ interface PlayerCardContentProps {
 
 const PlayerCardContent: React.FC<PlayerCardContentProps> = ({ player }) => (
   <View style={styles.playerCardContent}>
-    <Image source={{ uri: player.headshot }} style={styles.playerHeadshot} />
+    {/* <Image source={{ uri: player.headshot }} style={styles.playerHeadshot} /> */}
+    <View style={styles.initialsHero}>
+        <Text style={styles.initialsHeroText}>
+          {player.name ? player.name.split(' ').map((n: string) => n[0]).join('').substring(0,2).toUpperCase() : '-'}
+        </Text>
+    </View>
+
     <Text style={styles.playerName} numberOfLines={1}>{player.name}</Text>
     <Text style={styles.playerInfo}>{player.position} | {player.jersey}</Text>
     <View style={styles.playerTeamRow}>
@@ -455,6 +461,20 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     marginBottom: 8,
     backgroundColor: COLORS.divider,
+  },
+  initialsHero: {
+    width: 60,
+    height: 60,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  initialsHeroText: {
+    color: COLORS.textSecondary,
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: 2,
   },
   playerName: {
     color: COLORS.textMain,

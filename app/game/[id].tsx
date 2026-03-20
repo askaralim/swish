@@ -415,7 +415,7 @@ export default function GameDetailScreen() {
             <Text style={styles.perfName} numberOfLines={1}>{awayPerf.shortName}</Text>
             <Text style={styles.perfStat}>{awayPerf.stats[statKey]}</Text>
           </View>
-          <Image source={{ uri: awayPerf.headshot }} style={styles.perfHeadshot} />
+          {/* <Image source={{ uri: awayPerf.headshot }} style={styles.perfHeadshot} /> */}
         </TouchableOpacity>
         
         <Text style={styles.perfLabel}>{label}</Text>
@@ -424,7 +424,7 @@ export default function GameDetailScreen() {
           style={styles.perfPlayerSide}
           onPress={() => homePerf.athleteId && navigateToPlayer(homePerf.athleteId)}
         >
-          <Image source={{ uri: homePerf.headshot }} style={[styles.perfHeadshot, { marginLeft: 0, marginRight: 8 }]} />
+          {/* <Image source={{ uri: homePerf.headshot }} style={[styles.perfHeadshot, { marginLeft: 0, marginRight: 8 }]} /> */}
           <View style={[styles.perfPlayerInfo, { alignItems: 'flex-start' }]}>
             <Text style={styles.perfName} numberOfLines={1}>{homePerf.shortName}</Text>
             <Text style={styles.perfStat}>{homePerf.stats[statKey]}</Text>
@@ -748,7 +748,7 @@ export default function GameDetailScreen() {
             >
               <View style={styles.aiHeader}>
                 <Ionicons name="sparkles" size={14} color={COLORS.accent} />
-                <Text style={styles.aiTitle}>AI INSIGHTS</Text>
+                <Text style={styles.aiTitle}>AI 比赛总结</Text>
               </View>
               {isLoadingSummary ? (
                 <View style={styles.aiLoadingContainer}>
@@ -785,15 +785,26 @@ export default function GameDetailScreen() {
               style={styles.mvpCompactCard}
               onPress={() => game.boxscore?.gameMVP?.athleteId && navigateToPlayer(game.boxscore.gameMVP.athleteId)}
             >
-              <Image source={{ uri: game.boxscore.gameMVP.headshot }} style={styles.mvpHeadshot} />
+              {/* <View style={styles.mvpIdentityRow}>
+                  <Image source={{ uri: game.boxscore.gameMVP.headshot }} style={styles.mvpHeadshotSmall} />
+                  <Text style={styles.mvpNameSmall} numberOfLines={1}>{game.boxscore.gameMVP.name}</Text>
+                </View> */}
+              {/* <Image source={{ uri: game.boxscore.gameMVP.headshot }} style={styles.mvpHeadshot} /> */}
+
+              <View style={styles.initialsHero}>
+                 <Text style={styles.initialsHeroText}>
+                   {game.boxscore.gameMVP.name ? game.boxscore.gameMVP.name.split(' ').map((n: string) => n[0]).join('').substring(0,2).toUpperCase() : '-'}
+                 </Text>
+              </View>
+
               <View style={styles.mvpInfo}>
-                <Text style={styles.mvpName}>{game.boxscore.gameMVP.name}</Text>
                 {game.boxscore.gameMVP.gis != null && (
                   <View style={styles.gisHighlight}>
                     <Text style={styles.gisValue}>{game.boxscore.gameMVP.gis}</Text>
                     <Text style={styles.gisTier}>{getGisTier(Number(game.boxscore.gameMVP.gis))}</Text>
                   </View>
                 )}
+                <Text style={styles.mvpName}>{game.boxscore.gameMVP.name}</Text>
                 <View style={styles.mvpStatsRow}>
                   <View style={styles.mvpStatBlock}>
                     <Text style={styles.mvpStatValue}>{game.boxscore.gameMVP.stats.points}</Text>
@@ -1491,15 +1502,31 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#2c2c2e',
+    backgroundColor: COLORS.header,
     marginRight: 20,
   },
+  initialsHero: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 20,
+  },
+  initialsHeroText: {
+    color: COLORS.textSecondary,
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: 2,
+  },
+
   mvpInfo: {
     flex: 1,
   },
   mvpName: {
-    color: COLORS.textMain,
-    fontSize: 20,
+    color: COLORS.textSecondary,
+    fontSize: 16,
     fontWeight: '700',
     marginBottom: 8,
   },
@@ -1518,13 +1545,13 @@ const styles = StyleSheet.create({
   },
   gisValue: {
     color: COLORS.accent,
-    fontSize: 18,
+    fontSize: 26,
     fontWeight: '800',
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   gisTier: {
     color: COLORS.textSecondary,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
   },
   mvpStatsRow: {
@@ -1570,7 +1597,7 @@ const styles = StyleSheet.create({
   },
   perfName: {
     color: COLORS.textSecondary,
-    fontSize: 12,
+    fontSize: 14,
     marginBottom: 2,
   },
   perfStat: {
@@ -1582,7 +1609,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#2c2c2e',
+    backgroundColor: COLORS.header,
     marginLeft: 8,
   },
   perfLabel: {

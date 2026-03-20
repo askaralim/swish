@@ -424,7 +424,12 @@ export default function PlayerDetailScreen() {
         <Animated.View style={[styles.expandedContent, { opacity: expandedOpacity }]}>
           <View style={styles.headerTop}>
             <View style={styles.photoContainer}>
-              {details.photo && <Image source={{ uri: details.photo }} style={styles.mainPhoto} />}
+              {/* {details.photo && <Image source={{ uri: details.photo }} style={styles.mainPhoto} />} */}
+              <View style={styles.initialsHero}>
+                 <Text style={styles.initialsHeroText}>
+                   {details.name ? details.name.split(' ').map((n: string) => n[0]).join('').substring(0,2).toUpperCase() : '-'}
+                 </Text>
+              </View>
             </View>
             <View style={styles.headerInfo}>
               <View style={styles.teamRow}>
@@ -564,13 +569,25 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   photoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: '#1c1c1e',
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: '#2c2c2e',
+  },
+  initialsHero: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  initialsHeroText: {
+    color: COLORS.textSecondary,
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: 2,
   },
   mainPhoto: {
     width: '100%',
