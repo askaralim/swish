@@ -1194,7 +1194,8 @@ export default function GameDetailScreen() {
           center={
             <Animated.View style={[styles.compactScore, { opacity: collapsedOpacity, transform: [{ translateY: collapsedTranslateY }] }]}>
               <Text style={styles.compactScoreText}>
-                {awayTeam.abbreviation} {awayTeam.score} - {homeTeam.score} {homeTeam.abbreviation}
+                {/* {awayTeam.abbreviation} {awayTeam.score} - {homeTeam.score} {homeTeam.abbreviation} */}
+                {'客队'} {awayTeam.score} - {'主队'} {homeTeam.score}
               </Text>
               <View style={styles.liveInfoRow}>
                 <Text style={styles.compactStatus}>
