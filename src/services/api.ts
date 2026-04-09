@@ -1,10 +1,11 @@
+import { CURRENT_SEASON } from '../constants/season';
+
 /**
- * API Configuration
+ * API Configuration (single source of truth for REST base URL)
  */
-// const API_BASE_URL = 'https://nba-stats-api-production.up.railway.app';
-const API_BASE_URL = 
-__DEV__ ? 'http://192.168.0.101:3000'  // Local development
-  : 'https://nba-stats-api-production.up.railway.app';  // Production
+export const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL ||
+  (__DEV__ ? 'http://192.168.0.108:3000' : 'https://nba-stats-api-production.up.railway.app');
 
 /**
  * Parse API response
@@ -113,6 +114,16 @@ export function getChineseDate(): Date {
 
 // --- API Endpoints ---
 
+export type AppConfig = {
+  showPlayerHeadshots: boolean;
+};
+
+/** Remote feature flags (cached on home via React Query). */
+export async function fetchAppConfig(): Promise<AppConfig> {
+  const data = (await apiGet('/api/v1/app/config')) as { showPlayerHeadshots?: boolean };
+  return { showPlayerHeadshots: data?.showPlayerHeadshots === true };
+}
+
 export async function fetchTodayTopPerformers(date: Date) {
   const dateParam = formatDateForAPI(date);
   return apiGet('/api/v1/nba/todayTopPerformers', { date: dateParam });
@@ -194,7 +205,7 @@ export async function fetchPlayerStats(params: {
   sort?: string;
 } = {}) {
   const {
-    season = '2026|2',
+    season = CURRENT_SEASON,
     position = 'all-positions',
     conference = '0',
     page = 1,
@@ -213,22 +224,6 @@ export async function fetchPlayerStats(params: {
 }
 
 /**
- * Fetch NBA news (tweets from Shams, ESPN NBA, etc.)
- */
-export async function fetchNews(params: {
-  refresh?: boolean;
-  page?: number;
-  limit?: number;
-} = {}) {
-  const { refresh = false, page = 1, limit = 20 } = params;
-  return apiGet('/api/v1/nba/news', {
-    ...(refresh && { refresh: 'true' }),
-    page,
-    limit
-  }, true);
-}
-
-/**
  * Fetch translated NBA news articles (v2 API)
  */
 export async function fetchTranslatedNews(params: {
@@ -240,8 +235,8 @@ export async function fetchTranslatedNews(params: {
   return apiGet('/api/v2/nba/translated-news', { page, limit, sort }, true);
 }
 
-export async function fetchPlayerBasicStats(playerId: string) {
-  return apiGet(`/api/v1/nba/players/${playerId}/stats/current`);
+export async function fetchTranslatedNewsDetail(articleId: string) {
+  return apiGet(`/api/v2/nba/translated-news/${articleId}`);
 }
 
 export async function fetchTeams() {

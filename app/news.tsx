@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,8 @@ import {
   FlatList,
 } from 'react-native';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { fetchTranslatedNews } from '../src/services/api'; // Changed import
+import { useRouter } from 'expo-router';
+import { fetchTranslatedNews } from '../src/services/api';
 import { COLORS } from '../src/constants/theme';
 import { AnimatedSection } from '../src/components/AnimatedSection';
 import { Skeleton } from '../src/components/Skeleton';
@@ -54,7 +55,8 @@ interface TranslatedNewsResponse {
 export default function NewsScreen() {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const imageWidth = width - 32; // padding 16 each side
+  const router = useRouter();
+  const imageWidth = width - 32;
 
   const {
     data,
@@ -84,7 +86,11 @@ export default function NewsScreen() {
 
     return (
       <AnimatedSection key={article.id} index={index % 20} visible={true}>
-        <View style={styles.newsCard}>
+        <TouchableOpacity
+          style={styles.newsCard}
+          activeOpacity={0.7}
+          onPress={() => router.push(`/news/${article.id}`)}
+        >
           <View style={styles.authorRow}>
             {article.authorAvatar ? (
               <Image source={{ uri: article.authorAvatar }} style={styles.avatar} />
@@ -118,7 +124,7 @@ export default function NewsScreen() {
             {article.title && <Text style={styles.articleTitle}>{article.title}</Text>}
             <Text style={styles.articleText} numberOfLines={3} ellipsizeMode="tail">{article.content}</Text>
           </View>
-        </View>
+        </TouchableOpacity>
       </AnimatedSection>
     );
   };

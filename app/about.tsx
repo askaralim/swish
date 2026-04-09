@@ -1,19 +1,75 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Platform } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Linking,
+  Switch,
+  ActivityIndicator,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Application from 'expo-application';
 import { COLORS } from '../src/constants/theme';
 import { ScreenHeader } from '../src/components/ScreenHeader';
+import { getPushOptIn, setPushOptIn } from '../src/services/pushPreferences';
+import {
+  registerForPushNotifications,
+  sendPushTokenToServer,
+} from '../src/services/notifications';
 
 export default function AboutScreen() {
   const insets = useSafeAreaInsets();
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushLoading, setPushLoading] = useState(true);
+  const [pushBusy, setPushBusy] = useState(false);
 
-  const appVersion = Application.nativeApplicationVersion || '1.0.0'; // Fallback for web or dev
+  const appVersion = Application.nativeApplicationVersion || '1.0.0';
   const buildVersion = Application.nativeBuildVersion || '1';
 
+  const loadPushPref = useCallback(async () => {
+    setPushLoading(true);
+    try {
+      const on = await getPushOptIn();
+      setPushEnabled(on);
+    } finally {
+      setPushLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPushPref();
+  }, [loadPushPref]);
+
   const handlePressLink = (url: string) => {
-    Linking.openURL(url).catch(err => console.error('Failed to open URL:', err));
+    Linking.openURL(url).catch((err) => {
+      if (__DEV__) console.error('Failed to open URL:', err);
+    });
+  };
+
+  const onTogglePush = async (value: boolean) => {
+    setPushBusy(true);
+    try {
+      if (value) {
+        const token = await registerForPushNotifications();
+        if (token) {
+          const ok = await sendPushTokenToServer(token);
+          if (ok) {
+            await setPushOptIn(true);
+            setPushEnabled(true);
+          }
+        }
+        const stillOn = await getPushOptIn();
+        setPushEnabled(stillOn);
+      } else {
+        await setPushOptIn(false);
+        setPushEnabled(false);
+      }
+    } finally {
+      setPushBusy(false);
+    }
   };
 
   return (
@@ -26,28 +82,51 @@ export default function AboutScreen() {
           <View style={styles.card}>
             <View style={styles.row}>
               <Text style={styles.label}>版本</Text>
-              <Text style={styles.value}>{appVersion} ({buildVersion})</Text>
+              <Text style={styles.value}>
+                {appVersion} ({buildVersion})
+              </Text>
             </View>
-            {/* <View style={styles.divider} />
-            <View style={styles.row}>
-              <Text style={styles.label}>开发者</Text>
-              <Text style={styles.value}>AskArDev</Text>
-            </View> */}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>提醒</Text>
+          <View style={styles.card}>
+            <View style={styles.rowMultiline}>
+              <View style={styles.pushTextCol}>
+                <Text style={styles.label}>开启比赛提醒</Text>
+                <Text style={styles.pushHint}>
+                  末节关键时刻、本场 GIS 表现推送。可随时关闭。
+                </Text>
+              </View>
+              {pushLoading ? (
+                <ActivityIndicator color={COLORS.accent} />
+              ) : (
+                <Switch
+                  value={pushEnabled}
+                  onValueChange={onTogglePush}
+                  disabled={pushBusy}
+                  trackColor={{ false: COLORS.divider, true: COLORS.accent + '88' }}
+                  thumbColor={pushEnabled ? COLORS.accent : '#888'}
+                />
+              )}
+            </View>
           </View>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>法律声明</Text>
           <View style={styles.card}>
-            <TouchableOpacity style={styles.row} onPress={() => handlePressLink('https://askaralim.github.io/swish-privacy/privacy.html')}>
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() =>
+                handlePressLink('https://askaralim.github.io/swish-privacy/privacy.html')
+              }
+            >
               <Text style={styles.label}>隐私政策</Text>
               <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
             </TouchableOpacity>
             <View style={styles.divider} />
-            {/* <TouchableOpacity style={styles.row} onPress={() => handlePressLink('https://www.example.com/terms')}>
-              <Text style={styles.label}>服务条款</Text>
-              <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
-            </TouchableOpacity> */}
           </View>
         </View>
 
@@ -55,8 +134,9 @@ export default function AboutScreen() {
           <Text style={styles.sectionTitle}>数据来源</Text>
           <View style={styles.card}>
             <View style={styles.row}>
-              {/* <Text style={styles.label}>数据</Text> */}
-              <Text style={styles.value}>本应用为非官方统计展示工具，与 ESPN 或 NBA 无官方关联。</Text>
+              <Text style={styles.value}>
+                本应用为非官方统计展示工具，与 ESPN 或 NBA 无官方关联。
+              </Text>
             </View>
           </View>
         </View>
@@ -102,6 +182,23 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
   },
+  rowMultiline: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  pushTextCol: {
+    flex: 1,
+  },
+  pushHint: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    marginTop: 6,
+    lineHeight: 16,
+  },
   label: {
     color: COLORS.textMain,
     fontSize: 16,
@@ -109,6 +206,7 @@ const styles = StyleSheet.create({
   value: {
     color: COLORS.textSecondary,
     fontSize: 16,
+    flex: 1,
   },
   divider: {
     height: StyleSheet.hairlineWidth,

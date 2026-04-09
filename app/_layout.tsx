@@ -1,11 +1,15 @@
 import { QueryClient, QueryClientProvider, focusManager, onlineManager } from '@tanstack/react-query';
-import { Tabs, Stack } from 'expo-router'; // Import Stack for hidden detail screens
+import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../src/constants/theme';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { AppState, Platform, AppStateStatus } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
+import {
+  syncPushRegistrationFromPreference,
+  addNotificationResponseListener,
+} from '../src/services/notifications';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -38,11 +42,42 @@ onlineManager.setEventListener((setOnline) => {
 
 export default function RootLayout() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const responseListener = useRef<ReturnType<typeof addNotificationResponseListener> | undefined>(
+    undefined
+  );
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', onAppStateChange);
     return () => subscription.remove();
   }, []);
+
+  useEffect(() => {
+    syncPushRegistrationFromPreference();
+    const appStateSub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        syncPushRegistrationFromPreference();
+      }
+    });
+
+    responseListener.current = addNotificationResponseListener((response) => {
+      const data = response.notification.request.content.data as Record<string, string | undefined>;
+      if (data?.type === 'close_game' && data?.gameId) {
+        router.push(`/game/${data.gameId}`);
+      } else if (data?.type === 'mvp_performance' && data?.gameId) {
+        if (data.playerId) {
+          router.push(`/game/${data.gameId}/player/${data.playerId}`);
+        } else {
+          router.push(`/game/${data.gameId}`);
+        }
+      }
+    });
+
+    return () => {
+      appStateSub.remove();
+      responseListener.current?.remove();
+    };
+  }, [router]);
   
   return (
     <QueryClientProvider client={queryClient}>
@@ -106,7 +141,6 @@ export default function RootLayout() {
           name="news"
           options={{
             title: '新闻',
-            href: null, // Hidden for App Store resubmission (legal)
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="newspaper-outline" size={size} color={color} />
             ),
@@ -159,7 +193,12 @@ export default function RootLayout() {
           name="game/[id]/player/[playerId]"
           options={{
             href: null,
-            // presentation: 'modal'
+          }}
+        />
+        <Tabs.Screen
+          name="news/[id]"
+          options={{
+            href: null,
           }}
         />
       </Tabs>

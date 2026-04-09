@@ -4,7 +4,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
-import { fetchPlayerDetails, fetchPlayerBasicStats } from '../../../src/services/api';
+import { fetchPlayerDetails, fetchPlayerCurrentStats } from '../../../src/services/api';
 import { COLORS } from '../../../src/constants/theme';
 import { Skeleton } from '../../../src/components/Skeleton';
 import { ErrorState } from '../../../src/components/ErrorState';
@@ -144,7 +144,7 @@ export default function PlayerComparisonScreen() {
 
   const { data: player1BasicStats, isLoading: isLoadingP1Stats, error: errorP1Stats } = useQuery({
     queryKey: ['playerBasicStats', player1Id],
-    queryFn: () => fetchPlayerBasicStats(player1Id!),
+    queryFn: () => fetchPlayerCurrentStats(player1Id!),
     enabled: !!player1Id,
     staleTime: 5 * 60 * 1000,
   });
@@ -158,7 +158,7 @@ export default function PlayerComparisonScreen() {
 
   const { data: player2BasicStats, isLoading: isLoadingP2Stats, error: errorP2Stats } = useQuery({
     queryKey: ['playerBasicStats', player2Id],
-    queryFn: () => fetchPlayerBasicStats(player2Id!),
+    queryFn: () => fetchPlayerCurrentStats(player2Id!),
     enabled: !!player2Id,
     staleTime: 5 * 60 * 1000,
   });

@@ -23,11 +23,21 @@ interface HomePlayerCardProps {
   onPress?: (playerId: string) => void;
   showCompare?: boolean;
   listLayout?: boolean;
+  /** When true and performer has a headshot URL, show ESPN image; otherwise initials. */
+  showPlayerHeadshots?: boolean;
   /** 'season' = previous design (avatar + name, then stat row). 'today' = new design (value block on right). */
   variant?: 'today' | 'season';
 }
 
-export const HomePlayerCard: React.FC<HomePlayerCardProps> = ({ performer, onCompare, onPress, showCompare = true, listLayout = false, variant = 'today' }) => {
+export const HomePlayerCard: React.FC<HomePlayerCardProps> = ({
+  performer,
+  onCompare,
+  onPress,
+  showCompare = true,
+  listLayout = false,
+  showPlayerHeadshots = false,
+  variant = 'today',
+}) => {
   const statLabel = () => {
     switch (performer.statType) {
       case 'points': return '得分';
@@ -78,10 +88,13 @@ export const HomePlayerCard: React.FC<HomePlayerCardProps> = ({ performer, onCom
           activeOpacity={0.7}
           onPress={handleNameAreaPress}
         >
-          {/* <Image source={{ uri: performer.headshot }} style={styles.avatar} /> */}
-          <View style={styles.initialsAvatar}>
-            <Text style={styles.initialsText}>{getInitials(performer.name)}</Text>
-          </View>
+          {showPlayerHeadshots && performer.headshot ? (
+            <Image source={{ uri: performer.headshot }} style={styles.avatar} />
+          ) : (
+            <View style={styles.initialsAvatar}>
+              <Text style={styles.initialsText}>{getInitials(performer.name)}</Text>
+            </View>
+          )}
           <View style={styles.infoContainer}>
             <Text style={[styles.name, isSeasonVariant && styles.nameSeason]} numberOfLines={1}>{performer.name}</Text>
             <Text style={[styles.team, isSeasonVariant && styles.teamSeason]}>{performer.teamNameZhCN || performer.teamAbbreviation}</Text>

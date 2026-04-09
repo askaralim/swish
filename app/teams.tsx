@@ -19,6 +19,7 @@ import * as Haptics from 'expo-haptics';
 import { fetchStandings } from '../src/services/api';
 import { getTeamImage } from '../src/utils/teamImages';
 import { COLORS, MOTION } from '../src/constants/theme';
+import { CURRENT_SEASON_DISPLAY } from '../src/constants/season';
 import { AnimatedSection } from '../src/components/AnimatedSection';
 import { Skeleton } from '../src/components/Skeleton';
 import { ErrorState } from '../src/components/ErrorState';
@@ -163,7 +164,7 @@ export default function TeamsScreen() {
       <View style={styles.container}>
         <ScreenHeader
           title="联盟排名"
-          subtitle="2025-26 赛季"
+          subtitle={CURRENT_SEASON_DISPLAY}
           insetsTop={insets.top}
         />
         <View style={styles.scrollContent}>
@@ -194,7 +195,7 @@ export default function TeamsScreen() {
     <View style={styles.container}>
       <ScreenHeader
         title="联盟排名"
-        subtitle={standings?.seasonDisplayName || '2025-26 赛季'}
+        subtitle={standings?.seasonDisplayName || CURRENT_SEASON_DISPLAY}
         insetsTop={insets.top}
       />
 

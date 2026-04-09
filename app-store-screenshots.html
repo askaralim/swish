@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swish App Store Screenshot Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #121212;
+            color: white;
+            padding: 40px;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 40px;
+        }
+
+        .screenshot-wrapper {
+            width: 414px;
+            height: 896px;
+            overflow: hidden;
+            border-radius: 13px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .screenshot-scaler {
+            transform: scale(0.33333333);
+            transform-origin: top left;
+            width: 1242px;
+            height: 2688px;
+        }
+
+        .screenshot-container {
+            width: 1242px;
+            height: 2688px;
+            background: linear-gradient(180deg, #1A1A1A 0%, #000000 100%);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .header-text {
+            text-align: center;
+            padding-top: 180px;
+            width: 90%;
+            z-index: 10;
+        }
+
+        .title {
+            font-size: 80px;
+            font-weight: 800;
+            line-height: 1.25;
+            margin-bottom: 30px;
+            background: linear-gradient(90deg, #ffffff, #a0a0a0);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: 40px;
+            font-weight: 600;
+            color: #888888;
+            line-height: 1.4;
+        }
+
+        .device-wrapper {
+            margin-top: 100px;
+            width: 1050px;
+            height: 2270px;
+            background-color: #000;
+            border-radius: 60px;
+            border: 20px solid #333;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #444;
+            font-size: 40px;
+            font-weight: bold;
+        }
+
+        .device-wrapper img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .file-input {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+            z-index: 20;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1 class="text-3xl font-bold mb-4">Swish: App Store Screenshot Generator (1242 × 2688)</h1>
+    <p class="mb-8 text-gray-400">Click the phone frames below to upload your simulator screenshots. Then click
+        <b>Download</b> to instantly save exactly perfectly sized 1242x2688 pixel PNGs for App Store Connect.
+    </p>
+
+    <div class="grid-container">
+
+        <!-- Screenshot 1 -->
+        <div>
+            <div class="flex items-center justify-between mb-4 pr-10" style="width: 414px;">
+                <h2 class="text-xl font-bold text-orange-500">1. Core Analytics</h2>
+                <button onclick="downloadImage('ss1', '1_core_analytics.png', this)"
+                    class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold py-1.5 px-3 rounded">Download
+                    PNG</button>
+            </div>
+            <div class="screenshot-wrapper">
+                <div class="screenshot-scaler">
+                    <div class="screenshot-container" id="ss1">
+                        <div class="header-text">
+                            <div class="title">基于数据的表现排名</div>
+                            <div class="subtitle">通过 Game Impact Score（GIS）识别关键比赛表现</div>
+                        </div>
+                        <div class="device-wrapper">
+                            <span>Click to Upload Simulator Image</span>
+                            <input type="file" class="file-input" onchange="loadImage(event)">
+                            <img style="display:none;" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screenshot 2 -->
+        <div>
+            <div class="flex items-center justify-between mb-4 pr-10" style="width: 414px;">
+                <h2 class="text-xl font-bold text-orange-500">2. AI Features</h2>
+                <button onclick="downloadImage('ss2', '2_ai_insights.png', this)"
+                    class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold py-1.5 px-3 rounded">Download
+                    PNG</button>
+            </div>
+            <div class="screenshot-wrapper">
+                <div class="screenshot-scaler">
+                    <div class="screenshot-container" id="ss2">
+                        <div class="header-text">
+                            <div class="title">深度比赛表现分析</div>
+                            <div class="subtitle">AI 数据洞察帮助理解比赛过程中的关键变化</div>
+                        </div>
+                        <div class="device-wrapper">
+                            <span>Click to Upload Simulator Image</span>
+                            <input type="file" class="file-input" onchange="loadImage(event)">
+                            <img style="display:none;" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screenshot 3 -->
+        <div>
+            <div class="flex items-center justify-between mb-4 pr-10" style="width: 414px;">
+                <h2 class="text-xl font-bold text-orange-500">3. Comparison Tool</h2>
+                <button onclick="downloadImage('ss3', '3_comparison.png', this)"
+                    class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold py-1.5 px-3 rounded">Download
+                    PNG</button>
+            </div>
+            <div class="screenshot-wrapper">
+                <div class="screenshot-scaler">
+                    <div class="screenshot-container" id="ss3">
+                        <div class="header-text">
+                            <div class="title">多维度表现对比</div>
+                            <div class="subtitle">通过数据分析差异，专注表现本身</div>
+                        </div>
+                        <div class="device-wrapper">
+                            <span>Click to Upload Simulator Image</span>
+                            <input type="file" class="file-input" onchange="loadImage(event)">
+                            <img style="display:none;" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screenshot 4 -->
+        <div>
+            <div class="flex items-center justify-between mb-4 pr-10" style="width: 414px;">
+                <h2 class="text-xl font-bold text-orange-500">4. Leaderboards</h2>
+                <button onclick="downloadImage('ss4', '4_leaderboard.png', this)"
+                    class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold py-1.5 px-3 rounded">Download
+                    PNG</button>
+            </div>
+            <div class="screenshot-wrapper">
+                <div class="screenshot-scaler">
+                    <div class="screenshot-container" id="ss4">
+                        <div class="header-text">
+                            <div class="title">Daily Impact<br />Leaderboards</div>
+                            <div class="subtitle">Identify the most statistically significant performances.</div>
+                        </div>
+                        <div class="device-wrapper">
+                            <span>Click to Upload Simulator Image</span>
+                            <input type="file" class="file-input" onchange="loadImage(event)">
+                            <img style="display:none;" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        function loadImage(event) {
+            const input = event.target;
+            const img = input.nextElementSibling;
+            const span = input.previousElementSibling;
+            img.src = URL.createObjectURL(input.files[0]);
+            img.style.display = 'block';
+            if (span) span.style.display = 'none';
+        }
+
+        async function downloadImage(containerId, filename, btnIndex) {
+            const container = document.getElementById(containerId);
+            const scaler = container.parentElement;
+            const originalText = btnIndex.innerText;
+
+            btnIndex.innerText = "Processing...";
+            btnIndex.disabled = true;
+
+            try {
+                // Temporarily unscale to allow perfect 1:1 capture without CSS distortion
+                scaler.style.transform = 'scale(1)';
+
+                // Allow browser 1 frame to apply the transform
+                await new Promise(r => setTimeout(r, 100));
+
+                const dataUrl = await htmlToImage.toPng(container, {
+                    width: 1242,
+                    height: 2688,
+                    pixelRatio: 1
+                });
+
+                // Restore layout
+                scaler.style.transform = 'scale(0.33333333)';
+
+                const link = document.createElement("a");
+                link.href = dataUrl;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } catch (e) {
+                console.error("Error generating screenshot:", e);
+                alert("Failed to generate image. See console.");
+                scaler.style.transform = 'scale(0.33333333)';
+            } finally {
+                btnIndex.innerText = originalText;
+                btnIndex.disabled = false;
+            }
+        }
+    </script>
+</body>
+
+</html>

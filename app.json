@@ -2,7 +2,7 @@
   "expo": {
     "name": "唰！Swish",
     "slug": "swish",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon-swish-not-rounded.png",
     "scheme": "swish",
@@ -38,6 +38,13 @@
         {
           "savePhotosPermission": "Swish saves your player performance card image to your photo library.",
           "photosPermission": "Allow Swish to save performance card images to your photos."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon-swish-not-rounded.png",
+          "color": "#1d9bf0"
         }
       ]
     ],

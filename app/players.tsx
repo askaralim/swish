@@ -21,6 +21,7 @@ import { PlayerStatsResponse, Player } from '../src/types/player';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, MOTION } from '../src/constants/theme';
+import { CURRENT_SEASON, CURRENT_SEASON_SUBTITLE } from '../src/constants/season';
 import { AnimatedSection } from '../src/components/AnimatedSection';
 import { Skeleton } from '../src/components/Skeleton';
 import { ErrorState } from '../src/components/ErrorState';
@@ -32,7 +33,7 @@ export default function PlayersStatsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [filters, setFilters] = useState({
-    season: '2026|2',
+    season: CURRENT_SEASON,
     position: 'all-positions',
   });
 
@@ -71,12 +72,12 @@ export default function PlayersStatsScreen() {
           </View>
         </View>
 
-        {/* <View style={styles.cardAvatarContainer}>
+        <View style={styles.cardAvatarContainer}>
           <Image 
             source={{ uri: player.headshot || `https://a.espncdn.com/i/headshots/nba/600/${player.id}.png` }} 
             style={styles.playerAvatar} 
           />
-        </View> */}
+        </View>
 
         <View style={styles.cardInfo}>
           <Text style={styles.playerName} numberOfLines={1}>{player.name}</Text>
@@ -136,7 +137,7 @@ export default function PlayersStatsScreen() {
       <View style={styles.container}>
         <ScreenHeader
           title="赛季表现"
-          subtitle="2025-26 赛季 • 常规赛"
+          subtitle={CURRENT_SEASON_SUBTITLE}
           insetsTop={insets.top}
         />
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>

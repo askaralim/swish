@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useRouter, Link } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { fetchGames, fetchTodayTopPerformers, fetchSeasonLeaders, formatDateForAPI, getChineseDate } from '../src/services/api';
+import { fetchGames, fetchTodayTopPerformers, fetchSeasonLeaders, fetchAppConfig, formatDateForAPI, getChineseDate } from '../src/services/api';
 import { getTeamImage } from '../src/utils/teamImages';
 import { COLORS } from '../src/constants/theme';
 import { AnimatedSection } from '../src/components/AnimatedSection';
@@ -85,6 +85,13 @@ export default function HomeScreen() {
     placeholderData: keepPreviousData,
   });
 
+  const { data: appConfig, refetch: refetchAppConfig } = useQuery({
+    queryKey: ['appConfig'],
+    queryFn: fetchAppConfig,
+    staleTime: 30 * 60 * 1000,
+  });
+  const showPlayerHeadshots = appConfig?.showPlayerHeadshots === true;
+
   // 3. Fetch Games (Featured)
   const { data: gamesResponse, error: gamesError, refetch: refetchGames, isRefetching: isRefetchingGames } = useQuery({
     queryKey: ['games', formatDateForAPI(selectedDate), 'featured'],
@@ -99,7 +106,7 @@ export default function HomeScreen() {
   });
 
   const onManualRefresh = async () => {
-    await Promise.all([refetchPerformers(), refetchGames()]);
+    await Promise.all([refetchPerformers(), refetchGames(), refetchAppConfig()]);
   };
 
   useEffect(() => {
@@ -336,6 +343,7 @@ export default function HomeScreen() {
       showCompare,
       listLayout: useListLayout,
       variant,
+      showPlayerHeadshots,
       onPress: (_id: string) => {
         if (showCompare && performer.competitionId) {
           router.push(`/game/${performer.competitionId}`);
