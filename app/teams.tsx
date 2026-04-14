@@ -123,7 +123,7 @@ export default function TeamsScreen() {
             </View>
           </View>
 
-          {/* <Image source={logoSource} style={styles.teamLogo} resizeMode="contain" /> */}
+          <Image source={logoSource} style={styles.teamLogo} resizeMode="contain" />
 
           <View style={styles.teamInfo}>
             <Text style={styles.teamName} numberOfLines={1}>{team.nameZhCN}</Text>

@@ -424,12 +424,7 @@ export default function PlayerDetailScreen() {
         <Animated.View style={[styles.expandedContent, { opacity: expandedOpacity }]}>
           <View style={styles.headerTop}>
             <View style={styles.photoContainer}>
-              {/* {details.photo && <Image source={{ uri: details.photo }} style={styles.mainPhoto} />} */}
-              <View style={styles.initialsHero}>
-                 <Text style={styles.initialsHeroText}>
-                   {details.name ? details.name.split(' ').map((n: string) => n[0]).join('').substring(0,2).toUpperCase() : '-'}
-                 </Text>
-              </View>
+              {details.photo && <Image source={{ uri: details.photo }} style={styles.mainPhoto} />}
             </View>
             <View style={styles.headerInfo}>
               <View style={styles.teamRow}>

@@ -195,12 +195,6 @@ export default function RootLayout() {
             href: null,
           }}
         />
-        <Tabs.Screen
-          name="news/[id]"
-          options={{
-            href: null,
-          }}
-        />
       </Tabs>
     </QueryClientProvider>
   );

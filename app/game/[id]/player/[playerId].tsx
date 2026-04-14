@@ -195,12 +195,7 @@ export default function PlayerGamePerformanceScreen() {
             {/* Header: Player Info */}
             <View style={styles.cardHeader}>
               <View style={styles.playerIdentity}>
-                {/* <Image source={{ uri: playerStats.headshot }} style={styles.headshot} /> */}
-                <View style={styles.initialsHero}>
-                  <Text style={styles.initialsHeroText}>
-                    {playerStats.name ? playerStats.name.split(' ').map((n: string) => n[0]).join('').substring(0,2).toUpperCase() : '-'}
-                  </Text>
-                </View>
+                <Image source={{ uri: playerStats.headshot }} style={styles.headshot} />
                 <View style={styles.nameRow}>
                   <Text style={styles.playerName}>{playerStats.name}</Text>
                   <Text style={styles.playerMeta}>

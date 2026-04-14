@@ -5,7 +5,7 @@ import { CURRENT_SEASON } from '../constants/season';
  */
 export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ||
-  (__DEV__ ? 'http://192.168.0.108:3000' : 'https://nba-stats-api-production.up.railway.app');
+  (__DEV__ ? 'http://192.168.0.101:3000' : 'https://nba-stats-api-production.up.railway.app');
 
 /**
  * Parse API response

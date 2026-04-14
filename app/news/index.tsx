@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,26 +10,24 @@ import {
   useWindowDimensions,
   FlatList,
 } from 'react-native';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, type InfiniteData } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { fetchTranslatedNews } from '../src/services/api';
-import { COLORS } from '../src/constants/theme';
-import { AnimatedSection } from '../src/components/AnimatedSection';
-import { Skeleton } from '../src/components/Skeleton';
-import { ErrorState } from '../src/components/ErrorState';
-import { ScreenHeader } from '../src/components/ScreenHeader';
+import { fetchTranslatedNews } from '../../src/services/api';
+import { COLORS } from '../../src/constants/theme';
+import { AnimatedSection } from '../../src/components/AnimatedSection';
+import { ErrorState } from '../../src/components/ErrorState';
+import { ScreenHeader } from '../../src/components/ScreenHeader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// New interface for translated news articles
 interface NewsArticle {
   id: string;
-  author?: string; // Added optional author
-  authorAvatar?: string; // Added optional authorAvatar
+  author?: string;
+  authorAvatar?: string;
   title: string;
   content: string;
-  publishedAt: string; // ISO 8601 string
-  publishedTime: string; // e.g., "2小时前"
-  images: string[]; // Array of image URLs
+  publishedAt: string;
+  publishedTime: string;
+  images: string[];
 }
 
 interface TranslatedNewsResponse {
@@ -67,25 +65,47 @@ export default function NewsScreen() {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useInfiniteQuery<TranslatedNewsResponse>({
-    queryKey: ['translatedNews'], // Changed queryKey
-    queryFn: ({ pageParam = 1 }) => fetchTranslatedNews({ page: pageParam, limit: 20 }), // Changed fetch function
+  } = useInfiniteQuery<
+    TranslatedNewsResponse,
+    Error,
+    InfiniteData<TranslatedNewsResponse>,
+    string[],
+    number
+  >({
+    queryKey: ['translatedNews'],
+    queryFn: ({ pageParam }) => fetchTranslatedNews({ page: pageParam, limit: 20 }),
     getNextPageParam: (lastPage) => {
       const pagination = lastPage?.meta?.pagination;
-      return pagination?.hasMore ? pagination.nextPage : undefined;
+      const next = pagination?.nextPage;
+      return pagination?.hasMore && typeof next === 'number' ? next : undefined;
     },
     initialPageParam: 1,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
   });
+
+  const allArticles = useMemo(() => {
+    const raw =
+      data?.pages.flatMap((page) => (page as TranslatedNewsResponse).data?.articles || []) ?? [];
+    const seen = new Set<string>();
+    return raw.filter((a) => {
+      if (seen.has(a.id)) return false;
+      seen.add(a.id);
+      return true;
+    });
+  }, [data]);
 
   const onRefresh = async () => {
     await refetch();
   };
 
-  const renderNewsArticle = ({ item: article, index }: { item: NewsArticle, index: number }) => {
+  const renderNewsArticle = ({ item: article, index }: { item: NewsArticle; index: number }) => {
     const avatarLetter = article.author?.charAt(0) || '?';
 
     return (
-      <AnimatedSection key={article.id} index={index % 20} visible={true}>
+      <AnimatedSection index={index % 20} visible={true}>
         <TouchableOpacity
           style={styles.newsCard}
           activeOpacity={0.7}
@@ -100,19 +120,18 @@ export default function NewsScreen() {
               </View>
             )}
             {article.author && <Text style={styles.authorName}>{article.author}</Text>}
-            {article.publishedTime && <Text style={styles.publishedTime}> · {article.publishedTime}</Text>}
+            {article.publishedTime && (
+              <Text style={styles.publishedTime}> · {article.publishedTime}</Text>
+            )}
           </View>
 
           {article.images && article.images.length > 0 && (
             <View style={styles.mediaContainer}>
               {article.images.map((imageUrl, idx) => (
-                <View
-                  key={idx}
-                  style={styles.mediaWrapper}
-                >
+                <View key={idx} style={styles.mediaWrapper}>
                   <Image
                     source={{ uri: imageUrl }}
-                    style={[styles.mediaImage, { width: imageWidth - 32, maxHeight: 400 }]} // Adjusted width
+                    style={[styles.mediaImage, { width: imageWidth - 32, maxHeight: 400 }]}
                     resizeMode="cover"
                   />
                 </View>
@@ -120,16 +139,16 @@ export default function NewsScreen() {
             </View>
           )}
 
-          <View style={[styles.articleContent, {padding: 12}]}>
+          <View style={[styles.articleContent, { padding: 12 }]}>
             {article.title && <Text style={styles.articleTitle}>{article.title}</Text>}
-            <Text style={styles.articleText} numberOfLines={3} ellipsizeMode="tail">{article.content}</Text>
+            <Text style={styles.articleText} numberOfLines={3} ellipsizeMode="tail">
+              {article.content}
+            </Text>
           </View>
         </TouchableOpacity>
       </AnimatedSection>
     );
   };
-
- 
 
   if (isLoading && !data) {
     return (
@@ -146,13 +165,11 @@ export default function NewsScreen() {
   if (error && !isRefetching) {
     return (
       <ErrorState
-        message={error instanceof Error ? error.message : '无法获取新闻'} // Updated error message
+        message={error instanceof Error ? error.message : '无法获取新闻'}
         onRetry={refetch}
       />
     );
   }
-
-  const allArticles = data?.pages.flatMap(page => (page as TranslatedNewsResponse).data?.articles || []) ?? [];
 
   return (
     <View style={styles.container}>
@@ -177,26 +194,26 @@ export default function NewsScreen() {
           }
         }}
         onEndReachedThreshold={0.5}
-        ListFooterComponent={() => (
+        ListFooterComponent={() =>
           isFetchingNextPage ? (
             <View style={styles.footerLoader}>
               <ActivityIndicator size="small" color={COLORS.textSecondary} />
             </View>
-          ) : <View style={{ height: 40 }} />
-        )}
-        ListEmptyComponent={() => (
+          ) : (
+            <View style={{ height: 40 }} />
+          )
+        }
+        ListEmptyComponent={() =>
           !isLoading && (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyTitle}>暂无新闻</Text>
-              <Text style={styles.emptyMessage}>
-                目前没有可显示的新闻。请稍后再试。 {/* Updated empty message */}
-              </Text>
+              <Text style={styles.emptyMessage}>目前没有可显示的新闻。请稍后再试。</Text>
               <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
                 <Text style={styles.retryText}>刷新</Text>
               </TouchableOpacity>
             </View>
           )
-        )}
+        }
       />
     </View>
   );
@@ -268,12 +285,6 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     alignItems: 'center',
   },
-  skeletonNewsCard: {
-    backgroundColor: COLORS.cardSecondary,
-    borderRadius: 12,
-    marginBottom: 10,
-    padding: 12,
-  },
   loadingContent: {
     flex: 1,
     justifyContent: 'center',
@@ -327,4 +338,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.textSecondary,
     lineHeight: 18,
-  },});
+  },
+});

@@ -415,7 +415,7 @@ export default function GameDetailScreen() {
             <Text style={styles.perfName} numberOfLines={1}>{awayPerf.shortName}</Text>
             <Text style={styles.perfStat}>{awayPerf.stats[statKey]}</Text>
           </View>
-          {/* <Image source={{ uri: awayPerf.headshot }} style={styles.perfHeadshot} /> */}
+          <Image source={{ uri: awayPerf.headshot }} style={styles.perfHeadshot} />
         </TouchableOpacity>
         
         <Text style={styles.perfLabel}>{label}</Text>
@@ -424,7 +424,7 @@ export default function GameDetailScreen() {
           style={styles.perfPlayerSide}
           onPress={() => homePerf.athleteId && navigateToPlayer(homePerf.athleteId)}
         >
-          {/* <Image source={{ uri: homePerf.headshot }} style={[styles.perfHeadshot, { marginLeft: 0, marginRight: 8 }]} /> */}
+          <Image source={{ uri: homePerf.headshot }} style={[styles.perfHeadshot, { marginLeft: 0, marginRight: 8 }]} />
           <View style={[styles.perfPlayerInfo, { alignItems: 'flex-start' }]}>
             <Text style={styles.perfName} numberOfLines={1}>{homePerf.shortName}</Text>
             <Text style={styles.perfStat}>{homePerf.stats[statKey]}</Text>
@@ -785,17 +785,8 @@ export default function GameDetailScreen() {
               style={styles.mvpCompactCard}
               onPress={() => game.boxscore?.gameMVP?.athleteId && navigateToPlayer(game.boxscore.gameMVP.athleteId)}
             >
-              {/* <View style={styles.mvpIdentityRow}>
-                  <Image source={{ uri: game.boxscore.gameMVP.headshot }} style={styles.mvpHeadshotSmall} />
-                  <Text style={styles.mvpNameSmall} numberOfLines={1}>{game.boxscore.gameMVP.name}</Text>
-                </View> */}
-              {/* <Image source={{ uri: game.boxscore.gameMVP.headshot }} style={styles.mvpHeadshot} /> */}
 
-              <View style={styles.initialsHero}>
-                 <Text style={styles.initialsHeroText}>
-                   {game.boxscore.gameMVP.name ? game.boxscore.gameMVP.name.split(' ').map((n: string) => n[0]).join('').substring(0,2).toUpperCase() : '-'}
-                 </Text>
-              </View>
+              <Image source={{ uri: game.boxscore.gameMVP.headshot }} style={styles.mvpHeadshot} />
 
               <View style={styles.mvpInfo}>
                 {game.boxscore.gameMVP.gis != null && (

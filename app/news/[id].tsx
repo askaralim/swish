@@ -32,6 +32,14 @@ export default function NewsDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+
+  const goBackToNewsList = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/news');
+    }
+  };
   const { width } = useWindowDimensions();
   const imageWidth = width - 48;
 
@@ -48,7 +56,7 @@ export default function NewsDetailScreen() {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity onPress={goBackToNewsList} style={styles.backButton}>
             <Ionicons name="chevron-back" size={24} color={COLORS.textMain} />
           </TouchableOpacity>
         </View>
@@ -74,7 +82,7 @@ export default function NewsDetailScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={goBackToNewsList} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color={COLORS.textMain} />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>新闻详情</Text>
