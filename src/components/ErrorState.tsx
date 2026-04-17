@@ -9,7 +9,7 @@ interface ErrorStateProps {
 }
 
 export const ErrorState: React.FC<ErrorStateProps> = ({ 
-  message = 'Something went wrong', 
+  message = '出错了，请点击重试', 
   onRetry 
 }) => {
   return (
@@ -18,7 +18,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
       <Text style={styles.message}>{message}</Text>
       {onRetry && (
         <TouchableOpacity style={styles.button} onPress={onRetry}>
-          <Text style={styles.buttonText}>Retry</Text>
+          <Text style={styles.buttonText}>点击重试</Text>
         </TouchableOpacity>
       )}
     </View>

@@ -15,13 +15,18 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { fetchPlayerStats } from '../src/services/api';
+import { fetchPlayerStats, fetchAppConfig } from '../src/services/api';
+import {
+  SEASON_TYPES,
+  buildSeasonParam,
+  getSeasonSubtitle,
+  CURRENT_SEASON_YEAR,
+} from '../src/constants/season';
 import { STAT_SECTIONS } from '../src/config/playerStats';
 import { PlayerStatsResponse, Player } from '../src/types/player';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, MOTION } from '../src/constants/theme';
-import { CURRENT_SEASON, CURRENT_SEASON_SUBTITLE } from '../src/constants/season';
 import { AnimatedSection } from '../src/components/AnimatedSection';
 import { Skeleton } from '../src/components/Skeleton';
 import { ErrorState } from '../src/components/ErrorState';
@@ -32,19 +37,39 @@ const { width } = Dimensions.get('window');
 export default function PlayersStatsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [filters, setFilters] = useState({
-    season: CURRENT_SEASON,
-    position: 'all-positions',
+  const [viewPostseasonStats, setViewPostseasonStats] = useState(false);
+  const positionFilter = 'all-positions';
+
+  const { data: appConfig } = useQuery({
+    queryKey: ['appConfig'],
+    queryFn: fetchAppConfig,
+    staleTime: 30 * 60 * 1000,
   });
+  const leagueYear = appConfig?.leagueSeason?.year ?? CURRENT_SEASON_YEAR;
+  const leagueDisplay = appConfig?.leagueSeason?.displayName;
+
+  const effectiveSeason = buildSeasonParam(
+    viewPostseasonStats ? SEASON_TYPES.POSTSEASON : SEASON_TYPES.REGULAR,
+    leagueYear
+  );
 
   const { data, isLoading, error, refetch, isRefetching } = useQuery<PlayerStatsResponse>({
-    queryKey: ['playerStats', filters.season, filters.position],
-    queryFn: () => fetchPlayerStats({
-      season: filters.season,
-      position: filters.position,
-      limit: 100,
-    }),
+    queryKey: ['playerStats', effectiveSeason, positionFilter, leagueYear],
+    queryFn: () =>
+      fetchPlayerStats({
+        season: effectiveSeason,
+        position: positionFilter,
+        limit: 100,
+      }),
   });
+
+  const showPostseasonStatsToggle = data?.seasonMeta?.postseasonAvailable === true;
+
+  useEffect(() => {
+    if (!showPostseasonStatsToggle && viewPostseasonStats) {
+      setViewPostseasonStats(false);
+    }
+  }, [showPostseasonStatsToggle, viewPostseasonStats]);
 
   const renderPlayerCard = (player: Player, statName: string) => {
     const stat = player.stats[statName];
@@ -91,7 +116,6 @@ export default function PlayersStatsScreen() {
 
         <View style={styles.cardStat}>
           <Text style={[styles.statValueText, rank === 1 && { color: '#FCD34D' }]}>{statValue}</Text>
-          <Text style={styles.gpText}>{gamesPlayed} 场</Text>
         </View>
       </TouchableOpacity>
     );
@@ -137,7 +161,7 @@ export default function PlayersStatsScreen() {
       <View style={styles.container}>
         <ScreenHeader
           title="赛季表现"
-          subtitle={CURRENT_SEASON_SUBTITLE}
+          subtitle={getSeasonSubtitle(SEASON_TYPES.REGULAR, leagueDisplay)}
           insetsTop={insets.top}
         />
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -171,19 +195,64 @@ export default function PlayersStatsScreen() {
     );
   }
 
+  const headerSubtitle = showPostseasonStatsToggle
+    ? getSeasonSubtitle(
+        viewPostseasonStats ? SEASON_TYPES.POSTSEASON : SEASON_TYPES.REGULAR,
+        leagueDisplay
+      )
+    : data?.metadata
+      ? leagueDisplay
+        ? `${leagueDisplay} 赛季 • ${data.metadata.seasonType}`
+        : `${data.metadata.season} • ${data.metadata.seasonType}`
+      : getSeasonSubtitle(SEASON_TYPES.REGULAR, leagueDisplay);
+
   return (
     <View style={styles.container}>
-      <ScreenHeader
-        title="赛季表现"
-        subtitle={data?.metadata ? `${data.metadata.season} • ${data.metadata.seasonType}` : undefined}
-        insetsTop={insets.top}
-      />
+      <ScreenHeader title="赛季表现" subtitle={headerSubtitle} insetsTop={insets.top} />
 
-      <ScrollView 
-        style={styles.scrollView} 
+      <ScrollView
+        style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
       >
+        {showPostseasonStatsToggle && (
+          <View style={styles.seasonSegmentRow}>
+            <TouchableOpacity
+              style={[
+                styles.seasonSegmentBtn,
+                !viewPostseasonStats && styles.seasonSegmentBtnActive,
+              ]}
+              onPress={() => setViewPostseasonStats(false)}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.seasonSegmentText,
+                  !viewPostseasonStats && styles.seasonSegmentTextActive,
+                ]}
+              >
+                常规赛
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.seasonSegmentBtn,
+                viewPostseasonStats && styles.seasonSegmentBtnActive,
+              ]}
+              onPress={() => setViewPostseasonStats(true)}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.seasonSegmentText,
+                  viewPostseasonStats && styles.seasonSegmentTextActive,
+                ]}
+              >
+                季后赛
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
         <View style={styles.sectionsList}>
           {STAT_SECTIONS.map((section, index) => renderStatSection(section, index))}
         </View>
@@ -232,6 +301,34 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: COLORS.textMain,
     fontWeight: '600',
+  },
+  seasonSegmentRow: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 8,
+    backgroundColor: COLORS.card,
+    borderRadius: 10,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+  },
+  seasonSegmentBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  seasonSegmentBtnActive: {
+    backgroundColor: COLORS.accent + '22',
+  },
+  seasonSegmentText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  seasonSegmentTextActive: {
+    color: COLORS.accent,
   },
   scrollView: {
     flex: 1,

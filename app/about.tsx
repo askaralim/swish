@@ -141,9 +141,12 @@ export default function AboutScreen() {
           </View>
         </View>
 
-        <Text style={styles.footerText}>
-          Swish - 您的NBA伴侣。所有版权归属其各自所有者。
-        </Text>
+        <View style={styles.footerBlock}>
+          <Text style={styles.footerText}>
+            Swish - 您的NBA伴侣。所有版权归属其各自所有者。
+          </Text>
+          <Text style={styles.icpText}>ICP备案号：沪ICP备2026014116号-1A</Text>
+        </View>
       </ScrollView>
     </View>
   );
@@ -213,11 +216,22 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.divider,
     marginLeft: 16,
   },
+  footerBlock: {
+    marginTop: 32,
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
   footerText: {
     color: COLORS.textSecondary,
     fontSize: 12,
     textAlign: 'center',
-    marginTop: 32,
     lineHeight: 18,
+  },
+  icpText: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 16,
   },
 });

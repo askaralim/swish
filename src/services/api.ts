@@ -1,11 +1,12 @@
 import { CURRENT_SEASON } from '../constants/season';
+import type { SeasonMeta } from '../types/player';
 
 /**
  * API Configuration (single source of truth for REST base URL)
  */
 export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ||
-  (__DEV__ ? 'http://192.168.0.101:3000' : 'https://nba-stats-api-production.up.railway.app');
+  (__DEV__ ? 'http://192.168.0.103:3000' : 'https://nba-stats-api-production.up.railway.app');
 
 /**
  * Parse API response
@@ -114,14 +115,31 @@ export function getChineseDate(): Date {
 
 // --- API Endpoints ---
 
+/** Mirrors GET /api/v1/app/config `leagueSeason` (ESPN-shaped current phase from DB). */
+export type LeagueSeasonConfig = {
+  year: number;
+  current: boolean;
+  displayName: string;
+  type: number;
+  name: string;
+  abbreviation: string;
+};
+
 export type AppConfig = {
   showPlayerHeadshots: boolean;
+  leagueSeason: LeagueSeasonConfig | null;
 };
 
 /** Remote feature flags (cached on home via React Query). */
 export async function fetchAppConfig(): Promise<AppConfig> {
-  const data = (await apiGet('/api/v1/app/config')) as { showPlayerHeadshots?: boolean };
-  return { showPlayerHeadshots: data?.showPlayerHeadshots === true };
+  const data = (await apiGet('/api/v1/app/config')) as {
+    showPlayerHeadshots?: boolean;
+    leagueSeason?: LeagueSeasonConfig | null;
+  };
+  return {
+    showPlayerHeadshots: data?.showPlayerHeadshots === true,
+    leagueSeason: data?.leagueSeason ?? null,
+  };
 }
 
 export async function fetchTodayTopPerformers(date: Date) {
@@ -129,8 +147,19 @@ export async function fetchTodayTopPerformers(date: Date) {
   return apiGet('/api/v1/nba/todayTopPerformers', { date: dateParam });
 }
 
-export async function fetchSeasonLeaders() {
-  return apiGet('/api/v1/nba/seasonLeaders');
+export type SeasonLeadersPayload = {
+  points: unknown[];
+  rebounds: unknown[];
+  assists: unknown[];
+  seasonMeta?: SeasonMeta;
+};
+
+export async function fetchSeasonLeaders(seasontype?: number): Promise<SeasonLeadersPayload> {
+  const params: Record<string, string | number> = {};
+  if (seasontype !== undefined && seasontype !== null) {
+    params.seasontype = seasontype;
+  }
+  return apiGet('/api/v1/nba/seasonLeaders', params) as Promise<SeasonLeadersPayload>;
 }
 
 export async function fetchGames(date?: Date, featured: boolean = false) {

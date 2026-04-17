@@ -12,6 +12,7 @@ import {
 import { useRouter, Link } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchGames, fetchTodayTopPerformers, fetchSeasonLeaders, fetchAppConfig, formatDateForAPI, getChineseDate } from '../src/services/api';
+import { SEASON_TYPES, getSeasonSubtitle } from '../src/constants/season';
 import { getTeamImage } from '../src/utils/teamImages';
 import { COLORS } from '../src/constants/theme';
 import { AnimatedSection } from '../src/components/AnimatedSection';
@@ -68,6 +69,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const selectedDate = getChineseDate();
   const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [viewingPostseasonLeaders, setViewingPostseasonLeaders] = useState(false);
 
   // 1. Fetch Today's Top Performers
   const { data: topPerformersData, refetch: refetchPerformers, isRefetching: isRefetchingPerformers } = useQuery({
@@ -77,20 +79,48 @@ export default function HomeScreen() {
     placeholderData: keepPreviousData,
   });
 
-  // 2. Fetch Season Leaders
-  const { data: seasonLeadersData } = useQuery({
-    queryKey: ['seasonLeaders'],
-    queryFn: fetchSeasonLeaders,
-    staleTime: 60 * 60 * 1000,
-    placeholderData: keepPreviousData,
-  });
-
   const { data: appConfig, refetch: refetchAppConfig } = useQuery({
     queryKey: ['appConfig'],
     queryFn: fetchAppConfig,
     staleTime: 30 * 60 * 1000,
   });
   const showPlayerHeadshots = appConfig?.showPlayerHeadshots === true;
+  const leagueDisplay = appConfig?.leagueSeason?.displayName;
+
+  // 2. Fetch Season Leaders (optional ?seasontype=3 when playoffs toggle on)
+  // No keepPreviousData: avoids showing regular-season rows under the playoff tab while the new request loads.
+  const {
+    data: seasonLeadersData,
+    error: seasonLeadersError,
+    refetch: refetchSeasonLeaders,
+    isRefetching: isRefetchingSeasonLeaders,
+  } = useQuery({
+    queryKey: ['seasonLeaders', viewingPostseasonLeaders, appConfig?.leagueSeason?.year],
+    queryFn: () =>
+      fetchSeasonLeaders(viewingPostseasonLeaders ? SEASON_TYPES.POSTSEASON : undefined),
+    staleTime: 60 * 60 * 1000,
+  });
+
+  const seasonLeadersMeta = seasonLeadersData?.seasonMeta;
+  const showSeasonLeadersPlayoffToggle = seasonLeadersMeta?.postseasonAvailable === true;
+
+  useEffect(() => {
+    if (!showSeasonLeadersPlayoffToggle && viewingPostseasonLeaders) {
+      setViewingPostseasonLeaders(false);
+    }
+  }, [showSeasonLeadersPlayoffToggle, viewingPostseasonLeaders]);
+
+  const seasonLeadersSectionTitle = leagueDisplay
+    ? `${viewingPostseasonLeaders ? '季后赛' : '赛季'} TOP 3`
+    : viewingPostseasonLeaders
+      ? '季后赛 TOP 3'
+      : '常规赛 TOP 3';
+  const seasonLeadersSectionHint = leagueDisplay
+    ? getSeasonSubtitle(
+        viewingPostseasonLeaders ? SEASON_TYPES.POSTSEASON : SEASON_TYPES.REGULAR,
+        leagueDisplay
+      )
+    : null;
 
   // 3. Fetch Games (Featured)
   const { data: gamesResponse, error: gamesError, refetch: refetchGames, isRefetching: isRefetchingGames } = useQuery({
@@ -106,7 +136,12 @@ export default function HomeScreen() {
   });
 
   const onManualRefresh = async () => {
-    await Promise.all([refetchPerformers(), refetchGames(), refetchAppConfig()]);
+    await Promise.all([
+      refetchPerformers(),
+      refetchGames(),
+      refetchAppConfig(),
+      refetchSeasonLeaders(),
+    ]);
   };
 
   useEffect(() => {
@@ -188,16 +223,29 @@ export default function HomeScreen() {
 
   const handleCompare = (playerId: string, statType: TopPerformer['statType']) => {
     let seasonLeaderId = null;
-    if (seasonLeadersData) {
-      const leadersList = seasonLeadersData[statType];
+    const seasonKey =
+      statType === 'points' || statType === 'rebounds' || statType === 'assists'
+        ? statType
+        : null;
+    if (seasonLeadersData && seasonKey) {
+      const leadersList = seasonLeadersData[seasonKey] as { id: string }[] | undefined;
       if (leadersList && leadersList.length > 0) {
         seasonLeaderId = leadersList[0].id;
       }
     }
 
     if (seasonLeaderId) {
-      if (seasonLeaderId === playerId && seasonLeadersData?.[statType]?.length > 1) {
-        seasonLeaderId = seasonLeadersData[statType][1].id;
+      const listForAlt =
+        seasonKey && seasonLeadersData
+          ? (seasonLeadersData[seasonKey] as { id: string }[] | undefined)
+          : undefined;
+      if (
+        seasonKey &&
+        seasonLeaderId === playerId &&
+        listForAlt &&
+        listForAlt.length > 1
+      ) {
+        seasonLeaderId = listForAlt[1].id;
       }
       router.push(`/playerComparison/${playerId}/${seasonLeaderId}`);
     } else {
@@ -408,7 +456,9 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={isRefetchingGames || isRefetchingPerformers}
+            refreshing={
+              isRefetchingGames || isRefetchingPerformers || isRefetchingSeasonLeaders
+            }
             onRefresh={onManualRefresh}
             tintColor={COLORS.accent}
           />
@@ -444,7 +494,18 @@ export default function HomeScreen() {
         ) : null}
 
         {/* Season Leaders Sections */}
-        {!seasonLeadersData ? (
+        {seasonLeadersError ? (
+          <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+            <ErrorState
+              message={
+                seasonLeadersError instanceof Error
+                  ? seasonLeadersError.message
+                  : '无法获取赛季榜单'
+              }
+              onRetry={() => refetchSeasonLeaders()}
+            />
+          </View>
+        ) : !seasonLeadersData ? (
           <View style={{ padding: 16 }}>
              <Skeleton width={150} height={20} marginBottom={12} />
              <View style={{ flexDirection: 'row' }}>
@@ -454,12 +515,57 @@ export default function HomeScreen() {
           </View>
         ) : (
           <>
+            {showSeasonLeadersPlayoffToggle && (
+              <View style={styles.seasonSegmentRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.seasonSegmentBtn,
+                    !viewingPostseasonLeaders && styles.seasonSegmentBtnActive,
+                  ]}
+                  onPress={() => setViewingPostseasonLeaders(false)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.seasonSegmentText,
+                      !viewingPostseasonLeaders && styles.seasonSegmentTextActive,
+                    ]}
+                  >
+                    常规赛
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.seasonSegmentBtn,
+                    viewingPostseasonLeaders && styles.seasonSegmentBtnActive,
+                  ]}
+                  onPress={() => setViewingPostseasonLeaders(true)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.seasonSegmentText,
+                      viewingPostseasonLeaders && styles.seasonSegmentTextActive,
+                    ]}
+                  >
+                    季后赛
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
             <TouchableOpacity
               style={styles.sectionHeaderAction}
               onPress={() => router.push('/players')}
               activeOpacity={0.7}
             >
-              <Text style={styles.sectionHeaderActionTitle}>赛季 TOP 3</Text>
+              <View style={styles.sectionHeaderActionTitleCol}>
+                <Text style={styles.sectionHeaderActionTitle}>{seasonLeadersSectionTitle}</Text>
+                {/* {seasonLeadersSectionHint ? (
+                  <Text style={styles.sectionHeaderActionHint} numberOfLines={1}>
+                    {seasonLeadersSectionHint}
+                  </Text>
+                ) : null} */}
+              </View>
               <Text style={styles.sectionHeaderActionLink}>查看赛季</Text>
               <Ionicons name="chevron-forward" size={18} color={COLORS.accent} />
             </TouchableOpacity>
@@ -537,11 +643,20 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     gap: 6,
   },
-  sectionHeaderActionTitle: {
+  sectionHeaderActionTitleCol: {
     flex: 1,
+    minWidth: 0,
+  },
+  sectionHeaderActionTitle: {
     color: COLORS.textMain,
     fontSize: 18,
     fontWeight: '800',
+  },
+  sectionHeaderActionHint: {
+    marginTop: 2,
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '500',
   },
   sectionHeaderActionLink: {
     color: COLORS.accent,
@@ -606,6 +721,33 @@ const styles = StyleSheet.create({
   emptyStateText: {
     color: COLORS.textSecondary,
     fontSize: 14,
+  },
+  seasonSegmentRow: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginBottom: 10,
+    backgroundColor: COLORS.card,
+    borderRadius: 10,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+  },
+  seasonSegmentBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  seasonSegmentBtnActive: {
+    backgroundColor: COLORS.accent + '22',
+  },
+  seasonSegmentText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  seasonSegmentTextActive: {
+    color: COLORS.accent,
   },
   dateText: {
     color: COLORS.textSecondary,

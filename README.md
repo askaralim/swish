@@ -99,6 +99,11 @@ swish/
 - [x] App Store readiness
 - [ ] Search, Favorites, Personalization
 
+## Related documentation
+
+- Monorepo docs index: [`../../docs/README.md`](../../docs/README.md)
+- API v1 response schemas: [`../../docs/API_V1_SCHEMAS.md`](../../docs/API_V1_SCHEMAS.md)
+
 ---
 
 *Swish is not affiliated with ESPN or the NBA. All data is aggregated from third-party sources.*

@@ -56,8 +56,13 @@ export const GameCard: React.FC<GameCardProps> = ({ item, index, isDataLoaded, f
   const router = useRouter();
 
   const handlePress = () => {
-    const path = fromScreen ? `/game/${item.gameId}?from=${encodeURIComponent(fromScreen)}` : `/game/${item.gameId}`;
-    router.push(path);
+    router.push({
+      pathname: '/game/[id]',
+      params: {
+        id: item.gameId,
+        ...(fromScreen ? { from: fromScreen } : {}),
+      },
+    });
   };
 
   if (!isDataLoaded) {

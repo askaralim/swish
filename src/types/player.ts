@@ -40,8 +40,17 @@ export interface PlayerStatsMetadata {
   totalCount: number;
 }
 
+export type SeasonMeta = {
+  currentSeasonType: number | null;
+  currentSeasonTypeName: string | null;
+  requestedSeasonType: number;
+  requestedSeasonTypeName: string;
+  postseasonAvailable: boolean;
+};
+
 export interface PlayerStatsResponse {
   metadata: PlayerStatsMetadata;
+  seasonMeta?: SeasonMeta;
   topPlayersByStat: {
     avgPoints: StatCategory;
     avgAssists: StatCategory;
