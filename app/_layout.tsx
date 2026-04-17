@@ -137,9 +137,11 @@ export default function RootLayout() {
             ),
           }}
         />
+        {/* TEMP (App Store submission): hide 新闻 tab. Remove `href: null` to show again. */}
         <Tabs.Screen
           name="news"
           options={{
+            href: null,
             title: '新闻',
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="newspaper-outline" size={size} color={color} />
