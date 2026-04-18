@@ -120,7 +120,7 @@ export default function AboutScreen() {
             <TouchableOpacity
               style={styles.row}
               onPress={() =>
-                handlePressLink('https://askaralim.github.io/swish-privacy/privacy.html')
+                handlePressLink('https://swishinsight.com/privacy/')
               }
             >
               <Text style={styles.label}>隐私政策</Text>
