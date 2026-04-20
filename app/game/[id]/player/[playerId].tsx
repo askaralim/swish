@@ -1,44 +1,40 @@
 import React, { useRef, useState, useMemo } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  Image, 
-  TouchableOpacity, 
-  ActivityIndicator, 
-  Dimensions, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
+  ActivityIndicator,
+  Dimensions,
   ScrollView,
   Platform,
   Alert,
-  Modal
+  Modal,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
+import * as MediaLibrary from 'expo-media-library';
+import * as Sharing from 'expo-sharing';
 import { fetchGameDetail } from '@/src/services/api';
-import { getTeamImage } from '@/src/utils/teamImages';
 import { COLORS } from '@/src/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import ViewShot from 'react-native-view-shot';
-import * as MediaLibrary from 'expo-media-library';
-
 import { Skeleton } from '@/src/components/Skeleton';
+import {
+  ShareablePlayerPerformanceCard,
+  type ShareablePlayerPerformanceCardHandle,
+} from '@/src/components/ShareablePlayerPerformanceCard';
+import type { PlayerPerformanceCardData } from '@/src/components/PlayerPerformanceCard';
 
 const { width } = Dimensions.get('window');
-
-const getGisTier = (score: number): string => {
-  if (score >= 30) return 'MVP表现';
-  if (score >= 22) return '精英表现';
-  if (score >= 15) return '主力表现';
-  if (score >= 8) return '影响比赛';
-  return '有限';
-};
+const CARD_WIDTH = width - 40;
 
 export default function PlayerGamePerformanceScreen() {
-  const { id, playerId } = useLocalSearchParams<{ id: string, playerId: string }>();
+  const { id, playerId } = useLocalSearchParams<{ id: string; playerId: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const viewShotRef = useRef<ViewShot>(null);
+  const shareableRef = useRef<ShareablePlayerPerformanceCardHandle>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveProgress, setSaveProgress] = useState(0);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
@@ -51,9 +47,9 @@ export default function PlayerGamePerformanceScreen() {
 
   const playerStats = useMemo(() => {
     if (!game?.boxscore?.teams) return null;
-    
+
     for (const team of game.boxscore.teams) {
-      const athlete = [...team.starters, ...team.bench].find(a => a.athleteId === playerId);
+      const athlete = [...team.starters, ...team.bench].find((a) => a.athleteId === playerId);
       if (athlete) {
         return {
           ...athlete,
@@ -61,18 +57,52 @@ export default function PlayerGamePerformanceScreen() {
           teamLogo: team.logo,
           teamName: team.name,
           teamNameZhCN: team.nameZhCN,
-          gameScore: `${game.awayTeam.nameZhCN} ${game.awayTeam.score} - ${game.homeTeam.score} ${game.homeTeam.nameZhCN}`
+          gameScore: `${game.awayTeam.nameZhCN} ${game.awayTeam.score} - ${game.homeTeam.score} ${game.homeTeam.nameZhCN}`,
         };
       }
     }
     return null;
   }, [game, playerId]);
 
+  const cardData: PlayerPerformanceCardData | null = useMemo(() => {
+    if (!playerStats) return null;
+    return {
+      name: playerStats.name,
+      headshot: playerStats.headshot,
+      position: playerStats.position,
+      teamAbbreviation: playerStats.teamAbbreviation,
+      teamNameZhCN: playerStats.teamNameZhCN,
+      gameScore: playerStats.gameScore,
+      gis: playerStats.gis ?? null,
+      stats: {
+        minutes: playerStats.stats.minutes,
+        points: playerStats.stats.points,
+        rebounds: playerStats.stats.rebounds,
+        assists: playerStats.stats.assists,
+        steals: playerStats.stats.steals,
+        blocks: playerStats.stats.blocks,
+        plusMinus: playerStats.stats.plusMinus,
+        fieldGoals: playerStats.stats.fieldGoals,
+        threePointers: playerStats.stats.threePointers,
+        freeThrows: playerStats.stats.freeThrows,
+        turnovers: playerStats.stats.turnovers,
+        fouls: playerStats.stats.fouls,
+      },
+    };
+  }, [playerStats]);
+
+  const gameStatusLabel = useMemo(() => {
+    if (!game) return '';
+    if (game.gameStatus === 3) return '已结束';
+    if (game.gameStatus === 2) return '直播中';
+    return game.gameStatusText?.toUpperCase() ?? '';
+  }, [game]);
+
   const handleDownloadPress = async () => {
     try {
       setIsSaving(true);
       setSaveProgress(0.2);
-      const uri = await viewShotRef.current?.capture?.();
+      const uri = await shareableRef.current?.capture();
       if (uri) {
         setPreviewUri(uri);
         setSaveProgress(1.0);
@@ -81,6 +111,10 @@ export default function PlayerGamePerformanceScreen() {
           setShowPreview(true);
           setSaveProgress(0);
         }, 400);
+      } else {
+        setIsSaving(false);
+        setSaveProgress(0);
+        Alert.alert('生成失败', '无法生成预览图，请稍后再试');
       }
     } catch (error) {
       console.error('Capture failed', error);
@@ -106,8 +140,23 @@ export default function PlayerGamePerformanceScreen() {
     }
   };
 
-  const saveToGallery = async () => {
-    // This is now handled by handleDownloadPress -> confirmSave
+  const handleSharePreview = async () => {
+    if (!previewUri) return;
+    try {
+      const available = await Sharing.isAvailableAsync();
+      if (!available) {
+        Alert.alert('无法分享', '当前设备不支持分享此图片');
+        return;
+      }
+      await Sharing.shareAsync(previewUri, {
+        mimeType: 'image/png',
+        dialogTitle: '分享表现卡',
+        ...(Platform.OS === 'ios' ? { UTI: 'public.png' as const } : {}),
+      });
+    } catch (error) {
+      console.error('Share failed', error);
+      Alert.alert('分享失败', '请稍后再试');
+    }
   };
 
   if (isLoading) {
@@ -123,7 +172,7 @@ export default function PlayerGamePerformanceScreen() {
           </View>
         </View>
         <View style={styles.scrollContent}>
-          <View style={styles.card}>
+          <View style={[styles.cardSkeleton, { width: CARD_WIDTH }]}>
             <View style={styles.cardHeader}>
               <View style={styles.playerIdentity}>
                 <Skeleton width={64} height={64} borderRadius={32} />
@@ -139,7 +188,7 @@ export default function PlayerGamePerformanceScreen() {
               <Skeleton width={100} height={12} style={{ marginTop: 8 }} />
             </View>
             <View style={styles.statsGrid}>
-              {[1, 2, 3, 4, 5, 6].map(i => (
+              {[1, 2, 3, 4, 5, 6].map((i) => (
                 <View key={i} style={styles.statItem}>
                   <Skeleton width={30} height={10} style={{ marginBottom: 6 }} />
                   <Skeleton width={40} height={20} />
@@ -148,7 +197,7 @@ export default function PlayerGamePerformanceScreen() {
             </View>
             <View style={styles.divider} />
             <View style={styles.shootingRow}>
-              {[1, 2, 3, 4].map(i => (
+              {[1, 2, 3, 4].map((i) => (
                 <View key={i} style={styles.shootingItem}>
                   <Skeleton width={30} height={10} style={{ marginBottom: 4 }} />
                   <Skeleton width={50} height={15} />
@@ -161,7 +210,7 @@ export default function PlayerGamePerformanceScreen() {
     );
   }
 
-  if (!playerStats) {
+  if (!playerStats || !cardData) {
     return (
       <View style={[styles.container, styles.center]}>
         <Text style={{ color: COLORS.textSecondary }}>未找到该球员在此场比赛的数据</Text>
@@ -171,7 +220,6 @@ export default function PlayerGamePerformanceScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header NavBar */}
       <View style={{ backgroundColor: COLORS.bg, paddingTop: insets.top }}>
         <View style={styles.navBar}>
           <TouchableOpacity onPress={() => router.push(`/game/${id}`)} style={styles.navButton}>
@@ -189,114 +237,14 @@ export default function PlayerGamePerformanceScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* The Card to Capture */}
-        <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1.0 }}>
-          <View style={styles.card}>
-            {/* Header: Player Info */}
-            <View style={styles.cardHeader}>
-              <View style={styles.playerIdentity}>
-                <Image source={{ uri: playerStats.headshot }} style={styles.headshot} />
-                <View style={styles.nameRow}>
-                  <Text style={styles.playerName}>{playerStats.name}</Text>
-                  <Text style={styles.playerMeta}>
-                    {playerStats.teamNameZhCN} · {playerStats.position}
-                  </Text>
-                </View>
-              </View>
-              <Image source={getTeamImage(playerStats.teamAbbreviation)} style={styles.teamLogo} />
-            </View>
+        <ShareablePlayerPerformanceCard
+          ref={shareableRef}
+          cardWidth={CARD_WIDTH}
+          player={cardData}
+          gameStatusLabel={gameStatusLabel}
+        />
 
-            {/* Game Result */}
-            <View style={styles.gameInfo}>
-              <Text style={styles.gameScore}>{playerStats.gameScore}</Text>
-              <Text style={styles.gameStatus}>{game?.gameStatus === 3 ? '已结束' : game?.gameStatus === 2 ? '直播中' : game?.gameStatusText?.toUpperCase()}</Text>
-            </View>
-
-            {/* GIS Highlight */}
-            {playerStats.gis != null && (
-              <View style={styles.gisHighlight}>
-                <Text style={styles.gisLabel}>Swish 评分</Text>
-                <Text style={styles.gisValue}>{playerStats.gis}</Text>
-                <View>
-                  <Text style={styles.gisTier}>{getGisTier(playerStats.gis)}</Text>
-                </View>
-              </View>
-            )}
-
-            {/* Main Stats Grid */}
-            <View style={styles.statsGrid}>
-            <View style={styles.statItem}>
-                <Text style={styles.statLabel}>时间</Text>
-                <Text style={styles.statValue}>{playerStats.stats.minutes}</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>得分</Text>
-                <Text style={styles.statValue}>{playerStats.stats.points}</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>篮板</Text>
-                <Text style={styles.statValue}>{playerStats.stats.rebounds}</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>助攻</Text>
-                <Text style={styles.statValue}>{playerStats.stats.assists}</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>抢断</Text>
-                <Text style={styles.statValue}>{playerStats.stats.steals || '0'}</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>盖帽</Text>
-                <Text style={styles.statValue}>{playerStats.stats.blocks || '0'}</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>+/-</Text>
-                <Text style={[
-                  styles.statValue, 
-                  parseFloat(playerStats.stats.plusMinus) > 0 ? { color: COLORS.win } : 
-                  parseFloat(playerStats.stats.plusMinus) < 0 ? { color: COLORS.loss } : null
-                ]}>
-                  {parseFloat(playerStats.stats.plusMinus) > 0 ? `${playerStats.stats.plusMinus}` : playerStats.stats.plusMinus}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.divider} />
-
-            {/* Shooting Splits */}
-            <View style={styles.shootingRow}>
-              <View style={styles.shootingItem}>
-                <Text style={styles.shootingLabel}>投篮</Text>
-                <Text style={styles.shootingValue}>{playerStats.stats.fieldGoals || '-'}</Text>
-              </View>
-              <View style={styles.shootingItem}>
-                <Text style={styles.shootingLabel}>三分</Text>
-                <Text style={styles.shootingValue}>{playerStats.stats.threePointers || '-'}</Text>
-              </View>
-              <View style={styles.shootingItem}>
-                <Text style={styles.shootingLabel}>罚球</Text>
-                <Text style={styles.shootingValue}>{playerStats.stats.freeThrows || '-'}</Text>
-              </View>
-              <View style={styles.shootingItem}>
-                <Text style={styles.shootingLabel}>失误</Text>
-                <Text style={styles.shootingValue}>{playerStats.stats.turnovers || '-'}</Text>
-              </View>
-              <View style={styles.shootingItem}>
-                <Text style={styles.shootingLabel}>犯规</Text>
-                <Text style={styles.shootingValue}>{playerStats.stats.fouls || '-'}</Text>
-              </View>
-            </View>
-
-            {/* App Branding */}
-            {/* <View style={styles.branding}>
-              <Text style={styles.brandText}>SWISH NBA</Text>
-              <Text style={styles.brandTag}>swish-nba.app</Text>
-            </View> */}
-          </View>
-        </ViewShot>
-
-        {/* Action Link back to Player Detail */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.detailLink}
           onPress={() => router.push(`/player/${playerId}`)}
         >
@@ -305,7 +253,6 @@ export default function PlayerGamePerformanceScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Save Progress Overlay */}
       {isSaving && (
         <View style={styles.saveOverlay}>
           <View style={styles.saveModal}>
@@ -318,7 +265,6 @@ export default function PlayerGamePerformanceScreen() {
         </View>
       )}
 
-      {/* Preview Modal */}
       <Modal
         visible={showPreview}
         transparent={true}
@@ -333,24 +279,26 @@ export default function PlayerGamePerformanceScreen() {
             <Text style={styles.previewTitle}>预览表现卡</Text>
             <View style={{ width: 44 }} />
           </View>
-          
+
           <ScrollView contentContainerStyle={styles.previewScroll} showsVerticalScrollIndicator={false}>
             {previewUri && (
-              <Image 
-                source={{ uri: previewUri }} 
-                style={styles.previewImage} 
-                resizeMode="contain"
-              />
+              <Image source={{ uri: previewUri }} style={styles.previewImage} resizeMode="contain" />
             )}
           </ScrollView>
 
           <View style={[styles.previewFooter, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-            <TouchableOpacity style={styles.cancelButton} onPress={() => setShowPreview(false)}>
-              <Text style={styles.cancelButtonText}>取消</Text>
+            <TouchableOpacity style={styles.footerBtnGhost} onPress={() => setShowPreview(false)}>
+              <Text style={styles.footerBtnGhostText}>取消</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.confirmButton} onPress={confirmSave}>
-              <Ionicons name="download-outline" size={20} color="#000" style={{ marginRight: 8 }} />
-              <Text style={styles.confirmButtonText}>保存到相册</Text>
+            <TouchableOpacity style={styles.footerBtnShare} onPress={handleSharePreview}>
+              <Ionicons name="share-outline" size={20} color={COLORS.textMain} />
+              <Text style={styles.footerBtnShareText}>分享</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.footerBtnPrimary} onPress={confirmSave}>
+              <Ionicons name="download-outline" size={18} color="#000" style={{ marginRight: 6 }} />
+              <Text style={styles.footerBtnPrimaryText} numberOfLines={1}>
+                保存到相册
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -393,8 +341,7 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: 'center',
   },
-  card: {
-    width: width - 40,
+  cardSkeleton: {
     backgroundColor: '#0A0A0C',
     borderRadius: 24,
     padding: 24,
@@ -411,95 +358,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  headshot: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#1C1C1E',
-    marginRight: 16,
-  },
-  initialsHero: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 20,
-  },
-  initialsHeroText: {
-    color: COLORS.textSecondary,
-    fontSize: 24,
-    fontWeight: '800',
-    letterSpacing: 2,
-  },
   nameRow: {
     justifyContent: 'center',
   },
-  playerName: {
-    color: COLORS.textMain,
-    fontSize: 22,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-  playerMeta: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    marginTop: 2,
-    fontWeight: '500',
-  },
-  teamLogo: {
-    width: 32,
-    height: 32,
-  },
   gameInfo: {
     marginBottom: 24,
-  },
-  gameScore: {
-    color: COLORS.textMain,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  gameStatus: {
-    color: COLORS.textSecondary,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  gisHighlight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 10,
-    marginBottom: 24,
-    backgroundColor: `${COLORS.accent}25`,
-    borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderWidth: 1.5,
-    borderColor: `${COLORS.accent}50`,
-  },
-  gisLabel: {
-    color: COLORS.accent,
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  gisValue: {
-    color: COLORS.accent,
-    fontSize: 22,
-    fontWeight: '800',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  },
-  gisTier: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  gisSubtext: {
-    color: COLORS.textSecondary,
-    fontSize: 11,
-    fontWeight: '500',
-    marginTop: 2,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -509,18 +372,6 @@ const styles = StyleSheet.create({
   statItem: {
     alignItems: 'center',
   },
-  statLabel: {
-    color: COLORS.textSecondary,
-    fontSize: 10,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  statValue: {
-    color: COLORS.textMain,
-    fontSize: 20,
-    fontWeight: '800',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  },
   divider: {
     height: 1,
     backgroundColor: '#1C1C1E',
@@ -529,39 +380,9 @@ const styles = StyleSheet.create({
   shootingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 32,
   },
   shootingItem: {
     flex: 1,
-  },
-  shootingLabel: {
-    color: COLORS.textSecondary,
-    fontSize: 10,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  shootingValue: {
-    color: COLORS.textMain,
-    fontSize: 15,
-    fontWeight: '700',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  },
-  branding: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  brandText: {
-    color: COLORS.accent,
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
-  brandTag: {
-    color: '#3A3A3C',
-    fontSize: 10,
-    fontWeight: '600',
   },
   detailLink: {
     flexDirection: 'row',
@@ -637,42 +458,62 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   previewImage: {
-    width: width - 40,
-    height: (width - 40) * 1.5, // Aspect ratio for the card
+    width: CARD_WIDTH,
+    height: CARD_WIDTH * 1.5,
     borderRadius: 24,
   },
   previewFooter: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    gap: 12,
+    paddingHorizontal: 12,
+    paddingTop: 16,
+    gap: 8,
     backgroundColor: '#000',
+    alignItems: 'stretch',
   },
-  cancelButton: {
+  footerBtnGhost: {
     flex: 1,
-    height: 50,
-    borderRadius: 25,
+    minHeight: 48,
+    borderRadius: 24,
     backgroundColor: '#1C1C1E',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 6,
   },
-  cancelButtonText: {
+  footerBtnGhostText: {
     color: COLORS.textMain,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
   },
-  confirmButton: {
-    flex: 2,
-    height: 50,
-    borderRadius: 25,
+  footerBtnShare: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 24,
+    backgroundColor: '#2C2C2E',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 6,
+  },
+  footerBtnShareText: {
+    color: COLORS.textMain,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  footerBtnPrimary: {
+    flex: 1.2,
+    minHeight: 48,
+    borderRadius: 24,
     backgroundColor: COLORS.accent,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 8,
   },
-  confirmButtonText: {
+  footerBtnPrimaryText: {
     color: '#000',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
-  }
+    flexShrink: 1,
+  },
 });
