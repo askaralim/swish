@@ -1,8 +1,8 @@
 /** GIS tier label for Swish Score (same thresholds as product copy). */
 export function getGisTier(score: number): string {
-  if (score >= 30) return 'MVP表现';
-  if (score >= 22) return '精英表现';
-  if (score >= 15) return '主力表现';
-  if (score >= 8) return '影响比赛';
-  return '有限';
+  if (score >= 50) return '🔥 MVP级表现';
+  if (score >= 40) return '⭐ 全明星表现';
+  if (score >= 30) return '👍 主力表现';
+  if (score >= 20) return '👌 合格表现';
+  return '📉 低效表现';
 }

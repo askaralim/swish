@@ -26,6 +26,7 @@ import { getTeamImage } from '../../src/utils/teamImages';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, MOTION } from '../../src/constants/theme';
 import { AnimatedSection } from '../../src/components/AnimatedSection';
+import { getGisTier } from '@/src/utils/getGisTier';
 
 import { Skeleton } from '../../src/components/Skeleton';
 import { ErrorState } from '../../src/components/ErrorState';
@@ -35,14 +36,6 @@ import { usePostHog } from 'posthog-react-native';
 const { width } = Dimensions.get('window');
 
 const HEADER_EXPANDED_HEIGHT = 180;
-
-const getGisTier = (score: number): string => {
-  if (score >= 30) return 'MVP表现';
-  if (score >= 22) return '精英表现';
-  if (score >= 15) return '主力表现';
-  if (score >= 8) return '影响比赛';
-  return '有限';
-};
 const HEADER_COLLAPSED_HEIGHT = 100;
 
 const AnimatedStatBar = ({ awayPct, homePct, visible }: { awayPct: number, homePct: number, visible: boolean }) => {

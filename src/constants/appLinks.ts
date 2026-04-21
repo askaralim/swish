@@ -5,7 +5,7 @@
 export function getIosAppStoreUrl(): string | null {
   const id = process.env.EXPO_PUBLIC_IOS_APP_STORE_ID?.trim() || '6758647267';
   if (id && /^\d+$/.test(id)) {
-    return `https://apps.apple.com/cn/app/id6758647267`;
+    return `https://apps.apple.com/cn/app/id${id}`;
   }
   return null;
 }

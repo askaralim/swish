@@ -87,3 +87,6 @@ yarn-error.*
 
 # @end expo-cli
 .env
+
+# Local Cursor / Claude agent skills (not required for builds)
+.claude/
