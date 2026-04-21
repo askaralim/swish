@@ -19,9 +19,11 @@ import {
   registerForPushNotifications,
   sendPushTokenToServer,
 } from '../src/services/notifications';
+import { usePostHog } from 'posthog-react-native';
 
 export default function AboutScreen() {
   const insets = useSafeAreaInsets();
+  const posthog = usePostHog();
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(true);
   const [pushBusy, setPushBusy] = useState(false);
@@ -50,6 +52,7 @@ export default function AboutScreen() {
   };
 
   const onTogglePush = async (value: boolean) => {
+    posthog.capture('push_notifications_toggled', { enabled: value });
     setPushBusy(true);
     try {
       if (value) {
@@ -119,9 +122,10 @@ export default function AboutScreen() {
           <View style={styles.card}>
             <TouchableOpacity
               style={styles.row}
-              onPress={() =>
-                handlePressLink('https://swishinsight.com/privacy/')
-              }
+              onPress={() => {
+                posthog.capture('privacy_policy_tapped');
+                handlePressLink('https://swishinsight.com/privacy/');
+              }}
             >
               <Text style={styles.label}>隐私政策</Text>
               <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />

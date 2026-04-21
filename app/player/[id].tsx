@@ -29,6 +29,7 @@ import { AnimatedSection } from '../../src/components/AnimatedSection';
 import { Skeleton } from '../../src/components/Skeleton';
 import { ErrorState } from '../../src/components/ErrorState';
 import { DetailScreenHeader } from '../../src/components/DetailScreenHeader';
+import { usePostHog } from 'posthog-react-native';
 
 const { width } = Dimensions.get('window');
 const HEADER_EXPANDED_HEIGHT = 180;
@@ -38,6 +39,7 @@ export default function PlayerDetailScreen() {
   const { id: playerId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const posthog = usePostHog();
   const [activeTab, setActiveTab] = useState<'overview' | 'stats' | 'log'>('overview');
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   
@@ -93,6 +95,11 @@ export default function PlayerDetailScreen() {
   useEffect(() => {
     if (!isLoadingDetails && details && !isLoadingBio && !isLoadingCurrentStats) {
       setIsDataLoaded(true);
+      posthog.capture('player_viewed', {
+        player_id: playerId,
+        player_name: details.name,
+        team: details.team?.abbreviation ?? null,
+      });
       Animated.timing(headerOpacity, {
         toValue: 1,
         duration: MOTION.Fast,
@@ -105,6 +112,11 @@ export default function PlayerDetailScreen() {
   const handleTabChange = (tab: 'overview' | 'stats' | 'log') => {
     if (tab === activeTab) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    posthog.capture('player_tab_changed', {
+      player_id: playerId,
+      tab,
+      previous_tab: activeTab,
+    });
     const targetPos = tab === 'overview' ? 0 : tab === 'stats' ? 1 : 2;
 
     Animated.parallel([
@@ -366,10 +378,20 @@ export default function PlayerDetailScreen() {
                 const ast = event.stats[2];
 
                 return (
-                  <TouchableOpacity 
-                    key={event.eventId || idx} 
+                  <TouchableOpacity
+                    key={event.eventId || idx}
                     style={[styles.logRow, idx < events.length - 1 && styles.logDivider]}
-                    onPress={() => event.eventId && router.push(`/game/${event.eventId}`)}
+                    onPress={() => {
+                      if (event.eventId) {
+                        posthog.capture('game_log_game_tapped', {
+                          player_id: playerId,
+                          game_id: event.eventId,
+                          opponent: event.opponent?.abbreviation ?? null,
+                          game_result: event.gameResult ?? null,
+                        });
+                        router.push(`/game/${event.eventId}`);
+                      }
+                    }}
                   >
                     <View style={styles.logLeft}>
                       <Text style={styles.logDate}>{event.gameDate ? new Date(event.gameDate).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' }) : '-'}</Text>

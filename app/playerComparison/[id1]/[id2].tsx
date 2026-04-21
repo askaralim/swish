@@ -11,6 +11,7 @@ import { ErrorState } from '../../../src/components/ErrorState';
 import { getTeamImage } from '../../../src/utils/teamImages';
 import { PlayerPickerModal } from '../../../src/components/PlayerPickerModal';
 import { Ionicons } from '@expo/vector-icons';
+import { usePostHog } from 'posthog-react-native';
 
 
 interface PlayerData {
@@ -113,6 +114,7 @@ const ComparisonStat: React.FC<ComparisonStatProps> = ({ label, player1Value, pl
 export default function PlayerComparisonScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const posthog = usePostHog();
   const { id1, id2 } = useLocalSearchParams<{ id1: string; id2: string }>();
 
   const [player1Id, setPlayer1Id] = useState<string | null>(id1 || null);
@@ -120,6 +122,13 @@ export default function PlayerComparisonScreen() {
   const [showPlayerPicker, setShowPlayerPicker] = useState(false);
   const [selectingPlayerSlot, setSelectingPlayerSlot] = useState<1 | 2>(1);
   const [pickerModalKey, setPickerModalKey] = useState(0);
+
+  useEffect(() => {
+    posthog.capture('player_comparison_viewed', {
+      player1_id: id1 ?? null,
+      player2_id: id2 ?? null,
+    });
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -245,6 +254,10 @@ export default function PlayerComparisonScreen() {
   const error = errorP1Details || errorP1Stats || errorP2Details || errorP2Stats;
 
   const handleSelectPlayer = (playerId: string) => {
+    posthog.capture('player_selected_for_comparison', {
+      player_id: playerId,
+      slot: selectingPlayerSlot,
+    });
     if (selectingPlayerSlot === 1) {
       setPlayer1Id(playerId);
     } else {

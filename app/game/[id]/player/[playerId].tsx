@@ -1,4 +1,4 @@
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useRef, useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -26,6 +26,7 @@ import {
   type ShareablePlayerPerformanceCardHandle,
 } from '@/src/components/ShareablePlayerPerformanceCard';
 import type { PlayerPerformanceCardData } from '@/src/components/PlayerPerformanceCard';
+import { usePostHog } from 'posthog-react-native';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width - 40;
@@ -34,6 +35,7 @@ export default function PlayerGamePerformanceScreen() {
   const { id, playerId } = useLocalSearchParams<{ id: string; playerId: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const posthog = usePostHog();
   const shareableRef = useRef<ShareablePlayerPerformanceCardHandle>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveProgress, setSaveProgress] = useState(0);
@@ -98,7 +100,24 @@ export default function PlayerGamePerformanceScreen() {
     return game.gameStatusText?.toUpperCase() ?? '';
   }, [game]);
 
+  useEffect(() => {
+    if (playerStats) {
+      posthog.capture('player_card_viewed', {
+        game_id: id,
+        player_id: playerId,
+        player_name: playerStats.name ?? null,
+        team: playerStats.teamAbbreviation ?? null,
+        gis: playerStats.gis ?? null,
+      });
+    }
+  }, [playerStats]);
+
   const handleDownloadPress = async () => {
+    posthog.capture('performance_card_captured', {
+      game_id: id,
+      player_id: playerId,
+      player_name: playerStats?.name ?? null,
+    });
     try {
       setIsSaving(true);
       setSaveProgress(0.2);
@@ -132,6 +151,7 @@ export default function PlayerGamePerformanceScreen() {
         return;
       }
       await MediaLibrary.saveToLibraryAsync(previewUri);
+      posthog.capture('performance_card_saved', { game_id: id, player_id: playerId });
       Alert.alert('保存成功', '图片已保存到您的相册');
       setShowPreview(false);
     } catch (error) {
@@ -148,6 +168,7 @@ export default function PlayerGamePerformanceScreen() {
         Alert.alert('无法分享', '当前设备不支持分享此图片');
         return;
       }
+      posthog.capture('performance_card_shared', { game_id: id, player_id: playerId });
       await Sharing.shareAsync(previewUri, {
         mimeType: 'image/png',
         dialogTitle: '分享表现卡',
@@ -343,7 +364,7 @@ const styles = StyleSheet.create({
   },
   cardSkeleton: {
     backgroundColor: '#0A0A0C',
-    borderRadius: 24,
+    borderRadius: 0,
     padding: 24,
     borderWidth: 1,
     borderColor: '#1C1C1E',
@@ -460,7 +481,7 @@ const styles = StyleSheet.create({
   previewImage: {
     width: CARD_WIDTH,
     height: CARD_WIDTH * 1.5,
-    borderRadius: 24,
+    borderRadius: 0,
   },
   previewFooter: {
     flexDirection: 'row',

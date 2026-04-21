@@ -1,8 +1,54 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, Platform } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '@/src/constants/theme';
+import { getQrDownloadUrl } from '@/src/constants/appLinks';
 import { getTeamImage } from '@/src/utils/teamImages';
 import { getGisTier } from '@/src/utils/getGisTier';
+import QRCode from 'react-native-qrcode-svg';
+
+type TierVisual = {
+  icon: keyof typeof Ionicons.glyphMap;
+  gradient: readonly [string, string, string];
+  iconBubble: string;
+};
+
+function getTierVisual(gis: number): TierVisual {
+  if (gis >= 30) {
+    return {
+      icon: 'trophy',
+      gradient: ['#292524', '#a16207', '#eab308'] as const,
+      iconBubble: 'rgba(0,0,0,0.35)',
+    };
+  }
+  if (gis >= 22) {
+    return {
+      icon: 'flash',
+      gradient: ['#1e1b4b', '#6d28d9', '#a78bfa'] as const,
+      iconBubble: 'rgba(0,0,0,0.3)',
+    };
+  }
+  if (gis >= 15) {
+    return {
+      icon: 'trending-up',
+      gradient: ['#0c1222', '#1d4ed8', '#38bdf8'] as const,
+      iconBubble: 'rgba(0,0,0,0.28)',
+    };
+  }
+  if (gis >= 8) {
+    return {
+      icon: 'pulse',
+      gradient: ['#052e16', '#047857', '#34d399'] as const,
+      iconBubble: 'rgba(0,0,0,0.28)',
+    };
+  }
+  return {
+    icon: 'ellipse-outline',
+    gradient: ['#18181b', '#3f3f46', '#71717a'] as const,
+    iconBubble: 'rgba(0,0,0,0.35)',
+  };
+}
 
 export type PlayerPerformanceCardStats = {
   minutes: string;
@@ -41,12 +87,29 @@ export function PlayerPerformanceCard({
   player,
   gameStatusLabel,
 }: PlayerPerformanceCardProps) {
+  const tierVisual = player.gis != null ? getTierVisual(player.gis) : null;
+  const qrPayload = getQrDownloadUrl();
+
   return (
     <View style={[styles.card, { width: cardWidth }]}>
-      {player.gis != null && (
-        <View style={styles.tagBanner}>
-          <Text style={styles.tagBannerText}>{getGisTier(player.gis)}</Text>
-        </View>
+      {player.gis != null && tierVisual != null && (
+        <LinearGradient
+          colors={[...tierVisual.gradient]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.tagGradientShell}
+        >
+          <View style={styles.tagShine} pointerEvents="none" />
+          <View style={styles.tagRow}>
+            <View style={[styles.tagIconBubble, { backgroundColor: tierVisual.iconBubble }]}>
+              <Ionicons name={tierVisual.icon} size={22} color="#FFFFFF" />
+            </View>
+            <View style={styles.tagTextBlock}>
+              <Text style={styles.tagEyebrow}>本场比赛 · GIS 定位</Text>
+              <Text style={styles.tagTitle}>{getGisTier(player.gis)}</Text>
+            </View>
+          </View>
+        </LinearGradient>
       )}
 
       <View style={styles.cardHeader}>
@@ -144,8 +207,18 @@ export function PlayerPerformanceCard({
       </View>
 
       <View style={styles.branding}>
-        <Text style={styles.brandText}>唰！ Swish</Text>
-        <Text style={styles.brandTag}>swishinsight.com</Text>
+        <View style={styles.brandingCopy}>
+          <Text style={styles.brandText}>唰数据</Text>
+          <Text style={styles.brandTag}>swishinsight.com</Text>
+        </View>
+        <View style={styles.qrWrap}>
+          <QRCode
+            value={qrPayload}
+            size={56}
+            color="#0a0a0a"
+            backgroundColor="#FFFFFF"
+          />
+        </View>
       </View>
     </View>
   );
@@ -154,27 +227,83 @@ export function PlayerPerformanceCard({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#0A0A0C',
-    borderRadius: 24,
+    borderRadius: 0,
     padding: 24,
     borderWidth: 1,
     borderColor: '#1C1C1E',
   },
-  tagBanner: {
+  tagGradientShell: {
     alignSelf: 'stretch',
-    alignItems: 'center',
-    marginBottom: 16,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    backgroundColor: `${COLORS.accent}18`,
+    marginBottom: 18,
+    borderRadius: 14,
+    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: `${COLORS.accent}44`,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
-  tagBannerText: {
-    color: COLORS.accent,
-    fontSize: 17,
+  tagShine: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.2)',
+  },
+  tagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    gap: 12,
+  },
+  tagIconBubble: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  tagTextBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  tagEyebrow: {
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  tagTitle: {
+    color: '#FFFFFF',
+    fontSize: 19,
+    fontWeight: '900',
+    letterSpacing: 0.3,
+    textShadowColor: 'rgba(0,0,0,0.35)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  tagScorePill: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingLeft: 8,
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderLeftColor: 'rgba(255,255,255,0.25)',
+    paddingVertical: 2,
+  },
+  tagScorePillLabel: {
+    color: 'rgba(255,255,255,0.65)',
+    fontSize: 9,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
+  },
+  tagScorePillValue: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    marginTop: 2,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -232,7 +361,7 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 24,
     backgroundColor: `${COLORS.accent}25`,
-    borderRadius: 14,
+    borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderWidth: 1.5,
@@ -299,10 +428,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 12,
     marginTop: 8,
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#2C2C2E',
+  },
+  brandingCopy: {
+    flex: 1,
+    minWidth: 0,
   },
   brandText: {
     color: COLORS.accent,
@@ -314,5 +448,13 @@ const styles = StyleSheet.create({
     color: '#6A6A6C',
     fontSize: 11,
     fontWeight: '600',
+    marginTop: 4,
+  },
+  qrWrap: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
   },
 });

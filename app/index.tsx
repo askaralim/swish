@@ -1,13 +1,13 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useState, useMemo, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  RefreshControl, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  RefreshControl,
+  TouchableOpacity,
   Image,
-  ScrollView, 
+  ScrollView,
 } from 'react-native';
 import { useRouter, Link } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,6 +21,7 @@ import { ErrorState } from '../src/components/ErrorState';
 import { HomePlayerCard, TopPerformer } from '../src/components/HomePlayerCard';
 import { ScreenHeader } from '../src/components/ScreenHeader';
 import { Ionicons } from '@expo/vector-icons';
+import { usePostHog } from 'posthog-react-native';
 
 interface Game {
   gameId: string;
@@ -67,6 +68,7 @@ interface Game {
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const posthog = usePostHog();
   const selectedDate = getChineseDate();
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [viewingPostseasonLeaders, setViewingPostseasonLeaders] = useState(false);
@@ -95,9 +97,16 @@ export default function HomeScreen() {
     refetch: refetchSeasonLeaders,
     isRefetching: isRefetchingSeasonLeaders,
   } = useQuery({
-    queryKey: ['seasonLeaders', viewingPostseasonLeaders, appConfig?.leagueSeason?.year],
+    // 'reg' | 'post' in key invalidates caches from when we passed undefined (ESPN auto = wrong tab in playoffs).
+    queryKey: [
+      'seasonLeaders',
+      viewingPostseasonLeaders ? 'post' : 'reg',
+      appConfig?.leagueSeason?.year,
+    ],
     queryFn: () =>
-      fetchSeasonLeaders(viewingPostseasonLeaders ? SEASON_TYPES.POSTSEASON : undefined),
+      fetchSeasonLeaders(
+        viewingPostseasonLeaders ? SEASON_TYPES.POSTSEASON : SEASON_TYPES.REGULAR
+      ),
     staleTime: 60 * 60 * 1000,
   });
 
@@ -267,7 +276,7 @@ export default function HomeScreen() {
     const isFinished = item.gameStatus === 3;
     const isScheduled = item.gameStatus === 1;
     const isPostponed = item.gameStatus === 6;
-    
+
     const getStatusText = () => {
       if (isFinished) return '已结束';
       if (isLive) return '直播中';
@@ -286,11 +295,19 @@ export default function HomeScreen() {
       <AnimatedSection key={item.gameId} index={index} visible={isDataLoaded}>
         <TouchableOpacity
           style={[
-            styles.gameCard, 
+            styles.gameCard,
             item.isMarquee && styles.marqueeCard
           ]}
           activeOpacity={0.6}
           onPress={() => {
+            posthog.capture('game_tapped', {
+              game_id: item.gameId,
+              game_status: item.gameStatus,
+              home_team: item.homeTeam.abbreviation,
+              away_team: item.awayTeam.abbreviation,
+              is_marquee: item.isMarquee ?? false,
+              is_live: isLive,
+            });
             router.push(`/game/${item.gameId}`);
           }}
         >
@@ -321,7 +338,7 @@ export default function HomeScreen() {
               ) : (
                 <View style={styles.scoreRow}>
                   <Text style={[
-                    styles.scoreText, 
+                    styles.scoreText,
                     awayWin && styles.boldText,
                     !awayWin && isFinished && styles.dimmedText,
                     isLive && styles.liveScore
@@ -330,7 +347,7 @@ export default function HomeScreen() {
                   </Text>
                   <Text style={styles.scoreDivider}>—</Text>
                   <Text style={[
-                    styles.scoreText, 
+                    styles.scoreText,
                     homeWin && styles.boldText,
                     !homeWin && isFinished && styles.dimmedText,
                     isLive && styles.liveScore
@@ -339,16 +356,16 @@ export default function HomeScreen() {
                   </Text>
                 </View>
               )}
-              
+
               {!isScheduled && (
                 <View style={[
-                  styles.statusBadge, 
+                  styles.statusBadge,
                   isLive && styles.liveBadge,
                   item.isOvertime && styles.otBadge
                 ]}>
                   {isLive && <View style={styles.liveDot} />}
                   <Text style={[
-                    styles.statusText, 
+                    styles.statusText,
                     isLive && styles.liveText,
                     item.isOvertime && styles.otText
                   ]}>
@@ -393,6 +410,13 @@ export default function HomeScreen() {
       variant,
       showPlayerHeadshots,
       onPress: (_id: string) => {
+        posthog.capture('top_performer_tapped', {
+          player_id: performer.id,
+          player_name: performer.name,
+          stat_type: performer.statType,
+          variant,
+          navigates_to: showCompare && performer.competitionId ? 'game' : 'player',
+        });
         if (showCompare && performer.competitionId) {
           router.push(`/game/${performer.competitionId}`);
         } else {
@@ -425,7 +449,7 @@ export default function HomeScreen() {
   const featuredGamesRaw = gamesResponse?.featured || [];
   // Fallback: If no featured games, show top 3 from all games
   const gamesToShow = featuredGamesRaw.length > 0 ? featuredGamesRaw : allGames.slice(0, 3);
-  
+
   const totalGamesCount = gamesResponse?.totalGames || 0;
   const featuredCount = featuredGamesRaw.length;
 
@@ -436,7 +460,7 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <ScreenHeader
-        title="唰！"
+        title="唰数据"
         // subtitle={formatFullChineseDate(selectedDate)}
         insetsTop={insets.top}
         rightElement={
@@ -522,7 +546,10 @@ export default function HomeScreen() {
                     styles.seasonSegmentBtn,
                     !viewingPostseasonLeaders && styles.seasonSegmentBtnActive,
                   ]}
-                  onPress={() => setViewingPostseasonLeaders(false)}
+                  onPress={() => {
+                    posthog.capture('season_type_toggled', { season_type: 'regular' });
+                    setViewingPostseasonLeaders(false);
+                  }}
                   activeOpacity={0.7}
                 >
                   <Text
@@ -539,7 +566,10 @@ export default function HomeScreen() {
                     styles.seasonSegmentBtn,
                     viewingPostseasonLeaders && styles.seasonSegmentBtnActive,
                   ]}
-                  onPress={() => setViewingPostseasonLeaders(true)}
+                  onPress={() => {
+                    posthog.capture('season_type_toggled', { season_type: 'postseason' });
+                    setViewingPostseasonLeaders(true);
+                  }}
                   activeOpacity={0.7}
                 >
                   <Text
@@ -572,7 +602,7 @@ export default function HomeScreen() {
             {renderPerformerSection('得分', seasonLeaders.points, false, false, 'season')}
             {renderPerformerSection('篮板', seasonLeaders.rebounds, false, false, 'season')}
             {renderPerformerSection('助攻', seasonLeaders.assists, false, false, 'season')}
-            
+
             {(!seasonLeaders.points.length && !seasonLeaders.rebounds.length && !seasonLeaders.assists.length) && (
               <View style={styles.emptyStateContainer}>
                 <Text style={styles.emptyStateText}>暂无赛季数据</Text>
@@ -591,7 +621,7 @@ export default function HomeScreen() {
               </Text>
             )}
           </View>
-         
+
         </View>
 
         {!gamesResponse && !gamesError ? (
@@ -613,9 +643,13 @@ export default function HomeScreen() {
                 <Text style={styles.emptyText}>暂无焦点赛事</Text>
               </View>
             )}
-            
+
             <Link href="/fullgames" asChild>
-              <TouchableOpacity style={styles.viewAllGamesButton} activeOpacity={0.7}>
+              <TouchableOpacity
+                style={styles.viewAllGamesButton}
+                activeOpacity={0.7}
+                onPress={() => posthog.capture('view_all_games_tapped', { total_games: totalGamesCount })}
+              >
                 <Text style={styles.viewAllGamesButtonText}>查看全部 {totalGamesCount} 场比赛</Text>
               </TouchableOpacity>
             </Link>

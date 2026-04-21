@@ -30,6 +30,7 @@ import { AnimatedSection } from '../../src/components/AnimatedSection';
 import { Skeleton } from '../../src/components/Skeleton';
 import { ErrorState } from '../../src/components/ErrorState';
 import { DetailScreenHeader } from '../../src/components/DetailScreenHeader';
+import { usePostHog } from 'posthog-react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -190,6 +191,7 @@ interface GameDetail {
 export default function GameDetailScreen() {
   const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
   const router = useRouter();
+  const posthog = usePostHog();
 
   const handleBack = () => {
     if (from === 'fullgames') {
@@ -248,6 +250,12 @@ export default function GameDetailScreen() {
   useEffect(() => {
     if (!isLoadingDetail && game) {
       setIsDataLoaded(true);
+      posthog.capture('game_viewed', {
+        game_id: id,
+        game_status: game.gameStatus,
+        home_team: game.homeTeam?.abbreviation ?? null,
+        away_team: game.awayTeam?.abbreviation ?? null,
+      });
       Animated.timing(headerOpacity, {
         toValue: 1,
         duration: MOTION.Fast,
@@ -260,7 +268,11 @@ export default function GameDetailScreen() {
   const handleTabChange = (tab: 'game' | 'away' | 'home') => {
     if (tab === activeTab) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    
+    posthog.capture('game_tab_changed', {
+      game_id: id,
+      tab,
+      previous_tab: activeTab,
+    });
     const targetPos = tab === 'game' ? 0 : tab === 'away' ? 1 : 2;
 
     Animated.parallel([
@@ -364,7 +376,13 @@ export default function GameDetailScreen() {
   const isScheduled = Number(game.gameStatus) === 1 || Number(game.gameStatus) === 6;
   const isFinished = Number(game.gameStatus) === 3;
 
-  const navigateToPlayer = (playerId: string) => {
+  const navigateToPlayer = (playerId: string, playerName?: string) => {
+    posthog.capture('game_player_tapped', {
+      game_id: id,
+      player_id: playerId,
+      player_name: playerName ?? null,
+      game_status: game.gameStatus,
+    });
     if (game.gameStatus === 2 || game.gameStatus === 3) {
       router.push(`/game/${id}/player/${playerId}`);
     } else {
@@ -1185,8 +1203,7 @@ export default function GameDetailScreen() {
           center={
             <Animated.View style={[styles.compactScore, { opacity: collapsedOpacity, transform: [{ translateY: collapsedTranslateY }] }]}>
               <Text style={styles.compactScoreText}>
-                {/* {awayTeam.abbreviation} {awayTeam.score} - {homeTeam.score} {homeTeam.abbreviation} */}
-                {'客队'} {awayTeam.score} - {'主队'} {homeTeam.score}
+                {awayTeam.abbreviation} {awayTeam.score} - {homeTeam.score} {homeTeam.abbreviation}
               </Text>
               <View style={styles.liveInfoRow}>
                 <Text style={styles.compactStatus}>

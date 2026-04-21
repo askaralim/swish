@@ -1,4 +1,5 @@
-import { CURRENT_SEASON } from '../constants/season';
+import { Sentry } from './sentry';
+import { CURRENT_SEASON, SEASON_TYPES } from '../constants/season';
 import type { SeasonMeta } from '../types/player';
 
 /**
@@ -49,6 +50,12 @@ async function apiRequest(endpoint: string, options: RequestInit = {}, returnFul
   if (!response.ok) {
     if (response.status === 429) {
       throw new Error('Too many requests, please try again later');
+    }
+    if (response.status >= 500) {
+      Sentry.captureException(
+        new Error(`HTTP ${response.status}: ${response.statusText}`),
+        { tags: { api_error: 'server' }, extra: { url } }
+      );
     }
     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
   }
@@ -154,12 +161,11 @@ export type SeasonLeadersPayload = {
   seasonMeta?: SeasonMeta;
 };
 
-export async function fetchSeasonLeaders(seasontype?: number): Promise<SeasonLeadersPayload> {
-  const params: Record<string, string | number> = {};
-  if (seasontype !== undefined && seasontype !== null) {
-    params.seasontype = seasontype;
-  }
-  return apiGet('/api/v1/nba/seasonLeaders', params) as Promise<SeasonLeadersPayload>;
+/** Always pass explicit seasontype (2=regular, 3=postseason). Omitting it uses ESPN "auto" which follows the current segment — during playoffs that is postseason, which mismatched the 常规赛 tab on home. */
+export async function fetchSeasonLeaders(
+  seasontype: number = SEASON_TYPES.REGULAR
+): Promise<SeasonLeadersPayload> {
+  return apiGet('/api/v1/nba/seasonLeaders', { seasontype }) as Promise<SeasonLeadersPayload>;
 }
 
 export async function fetchGames(date?: Date, featured: boolean = false) {
