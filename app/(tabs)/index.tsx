@@ -1,5 +1,5 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
 import { useRouter, Link } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchGames, fetchTodayTopPerformers, fetchSeasonLeaders, fetchAppConfig, formatDateForAPI, getChineseDate } from '../../src/services/api';
-import { SEASON_TYPES, getSeasonSubtitle } from '../../src/constants/season';
+import { SEASON_TYPES } from '../../src/constants/season';
 import { getTeamImage } from '../../src/utils/teamImages';
 import { COLORS } from '../../src/constants/theme';
 import { AnimatedSection } from '../../src/components/AnimatedSection';
@@ -22,6 +22,7 @@ import { HomePlayerCard, TopPerformer } from '../../src/components/HomePlayerCar
 import { ScreenHeader } from '../../src/components/ScreenHeader';
 import { Ionicons } from '@expo/vector-icons';
 import { usePostHog } from 'posthog-react-native';
+import type { SeasonMeta } from '../../src/types/player';
 
 interface Game {
   gameId: string;
@@ -72,6 +73,11 @@ export default function HomeScreen() {
   const selectedDate = getChineseDate();
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [viewingPostseasonLeaders, setViewingPostseasonLeaders] = useState(false);
+  const seasonLeadersMetaSticky = useRef<SeasonMeta | undefined>(undefined);
+
+  const seasonLeadersSeasonType = viewingPostseasonLeaders
+    ? SEASON_TYPES.POSTSEASON
+    : SEASON_TYPES.REGULAR;
 
   // 1. Fetch Today's Top Performers
   const { data: topPerformersData, refetch: refetchPerformers, isRefetching: isRefetchingPerformers } = useQuery({
@@ -89,29 +95,33 @@ export default function HomeScreen() {
   const showPlayerHeadshots = appConfig?.showPlayerHeadshots === true;
   const leagueDisplay = appConfig?.leagueSeason?.displayName;
 
-  // 2. Fetch Season Leaders (optional ?seasontype=3 when playoffs toggle on)
-  // No keepPreviousData: avoids showing regular-season rows under the playoff tab while the new request loads.
+  // 2. Fetch Season Leaders (explicit seasontype in key + AbortSignal: cancel abandoned toggles, stable cache per type)
   const {
     data: seasonLeadersData,
     error: seasonLeadersError,
     refetch: refetchSeasonLeaders,
     isRefetching: isRefetchingSeasonLeaders,
+    isPending: isSeasonLeadersPending,
+    isFetching: isSeasonLeadersFetching,
   } = useQuery({
-    // 'reg' | 'post' in key invalidates caches from when we passed undefined (ESPN auto = wrong tab in playoffs).
-    queryKey: [
-      'seasonLeaders',
-      viewingPostseasonLeaders ? 'post' : 'reg',
-      appConfig?.leagueSeason?.year,
-    ],
-    queryFn: () =>
-      fetchSeasonLeaders(
-        viewingPostseasonLeaders ? SEASON_TYPES.POSTSEASON : SEASON_TYPES.REGULAR
-      ),
+    queryKey: ['seasonLeaders', seasonLeadersSeasonType, appConfig?.leagueSeason?.year],
+    queryFn: ({ signal }) => fetchSeasonLeaders(seasonLeadersSeasonType, signal),
     staleTime: 60 * 60 * 1000,
   });
 
-  const seasonLeadersMeta = seasonLeadersData?.seasonMeta;
+  useEffect(() => {
+    if (seasonLeadersData?.seasonMeta) {
+      seasonLeadersMetaSticky.current = seasonLeadersData.seasonMeta;
+    }
+  }, [seasonLeadersData?.seasonMeta]);
+
+  const seasonLeadersMeta = seasonLeadersData?.seasonMeta ?? seasonLeadersMetaSticky.current;
   const showSeasonLeadersPlayoffToggle = seasonLeadersMeta?.postseasonAvailable === true;
+
+  const isColdStartSeasonLeaders =
+    isSeasonLeadersPending && !seasonLeadersData && !seasonLeadersMetaSticky.current;
+  const seasonLeadersSwitchBusy =
+    isSeasonLeadersFetching && (isSeasonLeadersPending || !seasonLeadersData);
 
   useEffect(() => {
     if (!showSeasonLeadersPlayoffToggle && viewingPostseasonLeaders) {
@@ -124,12 +134,6 @@ export default function HomeScreen() {
     : viewingPostseasonLeaders
       ? '季后赛 TOP 3'
       : '常规赛 TOP 3';
-  const seasonLeadersSectionHint = leagueDisplay
-    ? getSeasonSubtitle(
-        viewingPostseasonLeaders ? SEASON_TYPES.POSTSEASON : SEASON_TYPES.REGULAR,
-        leagueDisplay
-      )
-    : null;
 
   // 3. Fetch Games (Featured)
   const { data: gamesResponse, error: gamesError, refetch: refetchGames, isRefetching: isRefetchingGames } = useQuery({
@@ -402,13 +406,21 @@ export default function HomeScreen() {
 
   const renderPerformerSection = (title: string, data: TopPerformer[], showCompare: boolean = true, useListLayout: boolean = false, variant: 'today' | 'season' = 'today') => {
     if (!data || data.length === 0) return null;
-    const cardProps = (performer: TopPerformer) => ({
+    const isSeasonSection = variant === 'season';
+    const cardProps = (performer: TopPerformer, index: number) => ({
       performer,
       onCompare: handleCompare,
       showCompare,
-      listLayout: useListLayout,
+      listLayout: useListLayout || isSeasonSection,
       variant,
       showPlayerHeadshots,
+      rank: index + 1,
+      presentation:
+        variant === 'today' && useListLayout
+          ? index === 0
+            ? 'lead' as const
+            : 'supporting' as const
+          : 'standard' as const,
       onPress: (_id: string) => {
         posthog.capture('top_performer_tapped', {
           player_id: performer.id,
@@ -424,19 +436,36 @@ export default function HomeScreen() {
         }
       },
     });
+
+    if (isSeasonSection) {
+      return (
+        <View style={styles.seasonLeaderGroup}>
+          <Text style={styles.seasonLeaderGroupTitle}>{title}</Text>
+          <View style={styles.seasonLeaderRows}>
+            {data.map((performer, index) => (
+              <View key={`${performer.id}-${index}`}>
+                <HomePlayerCard {...cardProps(performer, index)} />
+                {index < data.length - 1 ? <View style={styles.seasonLeaderDivider} /> : null}
+              </View>
+            ))}
+          </View>
+        </View>
+      );
+    }
+
     return (
       <View style={{ marginBottom: 24 }}>
         {title ? <Text style={styles.performerSectionTitle}>{title}</Text> : null}
         {useListLayout ? (
           <View style={styles.performerListVertical}>
-            {data.map((performer) => (
-              <HomePlayerCard key={performer.id} {...cardProps(performer)} />
+            {data.map((performer, index) => (
+              <HomePlayerCard key={performer.id} {...cardProps(performer, index)} />
             ))}
           </View>
         ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.performerList}>
-            {data.map((performer) => (
-              <HomePlayerCard key={performer.id} {...cardProps(performer)} />
+            {data.map((performer, index) => (
+              <HomePlayerCard key={performer.id} {...cardProps(performer, index)} />
             ))}
           </ScrollView>
         )}
@@ -501,9 +530,15 @@ export default function HomeScreen() {
         ) : hasTopPerformers ? (
           <>
             <View style={styles.performerSection}>
-              <Text style={styles.performerSectionHeader}>
-                <Ionicons name="flame" size={20} color={COLORS.accent} /> {'Swish 今日表现'}
-              </Text>
+              <View style={styles.performerHeaderRow}>
+                <View>
+                  <Text style={styles.performerEyebrow}>DAILY IMPACT</Text>
+                  <Text style={styles.performerSectionHeader}>Swish 今日表现</Text>
+                </View>
+                <View style={styles.performerHeaderMeta}>
+                  <Text style={styles.performerHeaderBadgeText}>TOP 5</Text>
+                </View>
+              </View>
             </View>
             {topPerformers.isGis ? (
               renderPerformerSection('', topPerformers.performers, true, true)
@@ -529,23 +564,24 @@ export default function HomeScreen() {
               onRetry={() => refetchSeasonLeaders()}
             />
           </View>
-        ) : !seasonLeadersData ? (
+        ) : isColdStartSeasonLeaders ? (
           <View style={{ padding: 16 }}>
-             <Skeleton width={150} height={20} marginBottom={12} />
-             <View style={{ flexDirection: 'row' }}>
-               <Skeleton width={160} height={140} borderRadius={16} marginRight={12} />
-               <Skeleton width={160} height={140} borderRadius={16} />
-             </View>
+            <Skeleton width={150} height={20} marginBottom={12} />
+            <View style={{ flexDirection: 'row' }}>
+              <Skeleton width={160} height={140} borderRadius={16} marginRight={12} />
+              <Skeleton width={160} height={140} borderRadius={16} />
+            </View>
           </View>
         ) : (
           <>
             {showSeasonLeadersPlayoffToggle && (
-              <View style={styles.seasonSegmentRow}>
+              <View style={[styles.seasonSegmentRow, seasonLeadersSwitchBusy && styles.seasonSegmentRowBusy]}>
                 <TouchableOpacity
                   style={[
                     styles.seasonSegmentBtn,
                     !viewingPostseasonLeaders && styles.seasonSegmentBtnActive,
                   ]}
+                  disabled={seasonLeadersSwitchBusy}
                   onPress={() => {
                     posthog.capture('season_type_toggled', { season_type: 'regular' });
                     setViewingPostseasonLeaders(false);
@@ -566,6 +602,7 @@ export default function HomeScreen() {
                     styles.seasonSegmentBtn,
                     viewingPostseasonLeaders && styles.seasonSegmentBtnActive,
                   ]}
+                  disabled={seasonLeadersSwitchBusy}
                   onPress={() => {
                     posthog.capture('season_type_toggled', { season_type: 'postseason' });
                     setViewingPostseasonLeaders(true);
@@ -590,24 +627,33 @@ export default function HomeScreen() {
             >
               <View style={styles.sectionHeaderActionTitleCol}>
                 <Text style={styles.sectionHeaderActionTitle}>{seasonLeadersSectionTitle}</Text>
-                {/* {seasonLeadersSectionHint ? (
-                  <Text style={styles.sectionHeaderActionHint} numberOfLines={1}>
-                    {seasonLeadersSectionHint}
-                  </Text>
-                ) : null} */}
               </View>
               <Text style={styles.sectionHeaderActionLink}>查看赛季</Text>
               <Ionicons name="chevron-forward" size={18} color={COLORS.accent} />
             </TouchableOpacity>
-            {renderPerformerSection('得分', seasonLeaders.points, false, false, 'season')}
-            {renderPerformerSection('篮板', seasonLeaders.rebounds, false, false, 'season')}
-            {renderPerformerSection('助攻', seasonLeaders.assists, false, false, 'season')}
-
-            {(!seasonLeaders.points.length && !seasonLeaders.rebounds.length && !seasonLeaders.assists.length) && (
-              <View style={styles.emptyStateContainer}>
-                <Text style={styles.emptyStateText}>暂无赛季数据</Text>
+            {seasonLeadersSwitchBusy ? (
+              <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+                <Skeleton width="100%" height={88} borderRadius={16} marginBottom={12} />
+                <Skeleton width="100%" height={88} borderRadius={16} marginBottom={12} />
+                <Skeleton width="100%" height={88} borderRadius={16} />
               </View>
-            )}
+            ) : seasonLeadersData ? (
+              <>
+                <View style={styles.seasonLeaderGroups}>
+                  {renderPerformerSection('得分', seasonLeaders.points, false, true, 'season')}
+                  {renderPerformerSection('篮板', seasonLeaders.rebounds, false, true, 'season')}
+                  {renderPerformerSection('助攻', seasonLeaders.assists, false, true, 'season')}
+                </View>
+
+                {!seasonLeaders.points.length &&
+                  !seasonLeaders.rebounds.length &&
+                  !seasonLeaders.assists.length && (
+                    <View style={styles.emptyStateContainer}>
+                      <Text style={styles.emptyStateText}>暂无赛季数据</Text>
+                    </View>
+                  )}
+              </>
+            ) : null}
           </>
         )}
 
@@ -667,14 +713,14 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bg,
   },
   performerSection: {
-    marginTop: 16,
+    marginTop: 14,
   },
   sectionHeaderAction: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    marginTop: 24,
-    marginBottom: 16,
+    marginTop: 28,
+    marginBottom: 14,
     gap: 6,
   },
   sectionHeaderActionTitleCol: {
@@ -699,10 +745,32 @@ const styles = StyleSheet.create({
   },
   performerSectionHeader: {
     color: COLORS.textMain,
-    fontSize: 18,
-    fontWeight: '800',
-    marginBottom: 16,
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: 0,
+  },
+  performerHeaderRow: {
     paddingHorizontal: 16,
+    marginBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  performerEyebrow: {
+    color: COLORS.accent,
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  performerHeaderMeta: {
+    paddingHorizontal: 2,
+    paddingVertical: 5,
+  },
+  performerHeaderBadgeText: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    fontWeight: '900',
   },
   performerSectionTitle: {
     color: COLORS.textSecondary,
@@ -717,6 +785,34 @@ const styles = StyleSheet.create({
   },
   performerListVertical: {
     paddingHorizontal: 16,
+    gap: 2,
+  },
+  seasonLeaderGroups: {
+    paddingHorizontal: 16,
+    gap: 12,
+    marginBottom: 8,
+  },
+  seasonLeaderGroup: {
+    backgroundColor: COLORS.cardMuted,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  seasonLeaderGroupTitle: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    fontWeight: '800',
+    paddingTop: 12,
+    paddingHorizontal: 12,
+    paddingBottom: 2,
+  },
+  seasonLeaderRows: {
+    paddingBottom: 2,
+  },
+  seasonLeaderDivider: {
+    height: 1,
+    marginLeft: 90,
+    marginRight: 12,
+    backgroundColor: 'rgba(255,255,255,0.06)',
   },
   sectionHeader: {
     marginTop: 32,
@@ -759,12 +855,16 @@ const styles = StyleSheet.create({
   seasonSegmentRow: {
     flexDirection: 'row',
     marginHorizontal: 16,
-    marginBottom: 10,
-    backgroundColor: COLORS.card,
+    marginTop: 6,
+    marginBottom: 12,
+    backgroundColor: COLORS.cardMuted,
     borderRadius: 10,
     padding: 4,
     borderWidth: 1,
-    borderColor: COLORS.divider,
+    borderColor: COLORS.borderSubtle,
+  },
+  seasonSegmentRowBusy: {
+    opacity: 0.55,
   },
   seasonSegmentBtn: {
     flex: 1,

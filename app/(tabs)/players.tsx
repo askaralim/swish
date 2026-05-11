@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -36,6 +36,7 @@ export default function PlayersStatsScreen() {
   const insets = useSafeAreaInsets();
   const [viewPostseasonStats, setViewPostseasonStats] = useState(false);
   const positionFilter = 'all-positions';
+  const playersStatsMetaSticky = useRef<PlayerStatsResponse['seasonMeta']>(undefined);
 
   const { data: appConfig } = useQuery({
     queryKey: ['appConfig'],
@@ -50,17 +51,36 @@ export default function PlayersStatsScreen() {
     leagueYear
   );
 
-  const { data, isLoading, error, refetch, isRefetching } = useQuery<PlayerStatsResponse>({
+  const {
+    data,
+    isPending,
+    isFetching,
+    isRefetching,
+    error,
+    refetch,
+  } = useQuery<PlayerStatsResponse>({
     queryKey: ['playerStats', effectiveSeason, positionFilter, leagueYear],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       fetchPlayerStats({
         season: effectiveSeason,
         position: positionFilter,
         limit: 100,
+        signal,
       }),
   });
 
-  const showPostseasonStatsToggle = data?.seasonMeta?.postseasonAvailable === true;
+  useEffect(() => {
+    if (data?.seasonMeta) {
+      playersStatsMetaSticky.current = data.seasonMeta;
+    }
+  }, [data?.seasonMeta]);
+
+  const showPostseasonStatsToggle =
+    data?.seasonMeta?.postseasonAvailable === true ||
+    playersStatsMetaSticky.current?.postseasonAvailable === true;
+
+  const isColdStartPlayers = isPending && !data && !playersStatsMetaSticky.current;
+  const playersSwitchBusy = isFetching && (isPending || !data);
 
   useEffect(() => {
     if (!showPostseasonStatsToggle && viewPostseasonStats) {
@@ -136,7 +156,7 @@ export default function PlayersStatsScreen() {
     const top9 = categoryData.players.slice(0, 9);
 
     return (
-      <AnimatedSection key={section.statName} index={index} visible={!isLoading && !isRefetching}>
+      <AnimatedSection key={section.statName} index={index} visible={!!data && !isRefetching}>
         <View style={styles.statSection}>
           <LinearGradient
             colors={[section.color + '40', section.color + '10', COLORS.bg]}
@@ -161,7 +181,7 @@ export default function PlayersStatsScreen() {
     );
   };
 
-  if (isLoading || (isRefetching && !data)) {
+  if (isColdStartPlayers) {
     return (
       <View style={styles.container}>
         <ScreenHeader
@@ -225,12 +245,13 @@ export default function PlayersStatsScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
       >
         {showPostseasonStatsToggle && (
-          <View style={styles.seasonSegmentRow}>
+          <View style={[styles.seasonSegmentRow, playersSwitchBusy && styles.seasonSegmentRowBusy]}>
             <TouchableOpacity
               style={[
                 styles.seasonSegmentBtn,
                 !viewPostseasonStats && styles.seasonSegmentBtnActive,
               ]}
+              disabled={playersSwitchBusy}
               onPress={() => setViewPostseasonStats(false)}
               activeOpacity={0.7}
             >
@@ -248,6 +269,7 @@ export default function PlayersStatsScreen() {
                 styles.seasonSegmentBtn,
                 viewPostseasonStats && styles.seasonSegmentBtnActive,
               ]}
+              disabled={playersSwitchBusy}
               onPress={() => setViewPostseasonStats(true)}
               activeOpacity={0.7}
             >
@@ -263,7 +285,26 @@ export default function PlayersStatsScreen() {
           </View>
         )}
         <View style={styles.sectionsList}>
-          {sectionsWithData.length > 0 ? (
+          {playersSwitchBusy ? (
+            <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+              {[1, 2].map((i) => (
+                <View key={i} style={styles.skeletonSection}>
+                  <Skeleton width={width - 32} height={100} borderRadius={16} />
+                  <View style={{ marginTop: 12 }}>
+                    {[1, 2, 3].map((j) => (
+                      <View key={j} style={styles.skeletonPlayerRow}>
+                        <Skeleton width={24} height={24} borderRadius={12} />
+                        <Skeleton width={32} height={32} borderRadius={16} style={{ marginLeft: 12 }} />
+                        <Skeleton width={120} height={16} style={{ marginLeft: 12 }} />
+                        <View style={{ flex: 1 }} />
+                        <Skeleton width={40} height={16} />
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : sectionsWithData.length > 0 ? (
             sectionsWithData.map((section, index) => renderStatSection(section, index))
           ) : (
             <View style={styles.emptyState}>
@@ -332,6 +373,9 @@ const styles = StyleSheet.create({
     padding: 4,
     borderWidth: 1,
     borderColor: COLORS.divider,
+  },
+  seasonSegmentRowBusy: {
+    opacity: 0.55,
   },
   seasonSegmentBtn: {
     flex: 1,

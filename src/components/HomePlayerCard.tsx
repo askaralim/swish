@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import { COLORS } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { COLORS } from '../constants/theme';
 
 export interface TopPerformer {
   id: string;
@@ -23,10 +23,10 @@ interface HomePlayerCardProps {
   onPress?: (playerId: string) => void;
   showCompare?: boolean;
   listLayout?: boolean;
-  /** When true and performer has a headshot URL, show ESPN image; otherwise initials. */
   showPlayerHeadshots?: boolean;
-  /** 'season' = previous design (avatar + name, then stat row). 'today' = new design (value block on right). */
   variant?: 'today' | 'season';
+  presentation?: 'standard' | 'lead' | 'supporting';
+  rank?: number;
 }
 
 export const HomePlayerCard: React.FC<HomePlayerCardProps> = ({
@@ -37,13 +37,20 @@ export const HomePlayerCard: React.FC<HomePlayerCardProps> = ({
   listLayout = false,
   showPlayerHeadshots = false,
   variant = 'today',
+  presentation = 'standard',
+  rank,
 }) => {
+  const isSeasonVariant = variant === 'season';
+  const isLead = presentation === 'lead';
+  const isSupporting = presentation === 'supporting';
+  const isGis = performer.statType === 'gis';
+
   const statLabel = () => {
     switch (performer.statType) {
       case 'points': return '得分';
       case 'rebounds': return '篮板';
       case 'assists': return '助攻';
-      case 'gis': return 'GIS';
+      case 'gis': return 'Swish评分';
       default: return '';
     }
   };
@@ -58,19 +65,13 @@ export const HomePlayerCard: React.FC<HomePlayerCardProps> = ({
       ]
     : [];
 
-  const isGis = performer.statType === 'gis';
-  const hasGameLink = isGis && performer.competitionId;
   const handleNameAreaPress = () => {
-    if (hasGameLink && onPress) {
-      onPress(performer.id);
-    } else if (!isGis && onPress) {
+    if (onPress) {
       onPress(performer.id);
     } else if (!isGis && showCompare) {
       onCompare(performer.id, performer.statType);
     }
   };
-
-  const isSeasonVariant = variant === 'season';
 
   const getInitials = (name: string) => {
     if (!name) return '';
@@ -79,50 +80,162 @@ export const HomePlayerCard: React.FC<HomePlayerCardProps> = ({
     return name.substring(0, 2).toUpperCase();
   };
 
-  return (
-    <View style={[styles.card, listLayout && styles.cardListLayout, isSeasonVariant && styles.cardSeason]}>
-      {/* Row 1: Identity + (today: value on right | season: identity only) */}
-      <View style={styles.topRow}>
-        <TouchableOpacity
-          style={styles.nameAreaTouchable}
-          activeOpacity={0.7}
-          onPress={handleNameAreaPress}
-        >
-          {showPlayerHeadshots && performer.headshot ? (
-            <Image source={{ uri: performer.headshot }} style={styles.avatar} />
-          ) : (
-            <View style={styles.initialsAvatar}>
-              <Text style={styles.initialsText}>{getInitials(performer.name)}</Text>
-            </View>
-          )}
+  const shouldShowHeadshot = (showPlayerHeadshots || isSeasonVariant) && Boolean(performer.headshot);
+
+  const avatar = (
+    shouldShowHeadshot ? (
+      <Image
+        source={{ uri: performer.headshot }}
+        style={[
+          styles.avatar,
+          isLead && styles.avatarLead,
+          isSupporting && styles.avatarSupporting,
+        ]}
+      />
+    ) : (
+      <View
+        style={[
+          styles.initialsAvatar,
+          isLead && styles.avatarLead,
+          isSupporting && styles.avatarSupporting,
+        ]}
+      >
+        <Text style={styles.initialsText}>{getInitials(performer.name)}</Text>
+      </View>
+    )
+  );
+
+  const compareButton = showCompare ? (
+    <TouchableOpacity
+      style={[styles.compareButton, isSeasonVariant && styles.compareButtonSeason]}
+      activeOpacity={0.7}
+      onPress={() => onCompare(performer.id, isGis ? 'points' : performer.statType)}
+    >
+      <Ionicons
+        name="git-compare-outline"
+        size={isSeasonVariant ? 15 : 14}
+        color={isSeasonVariant ? COLORS.textMain : COLORS.accent}
+        style={styles.compareIcon}
+      />
+      <Text style={[styles.compareText, isSeasonVariant && styles.compareTextSeason]}>对比</Text>
+    </TouchableOpacity>
+  ) : null;
+
+  if (isLead) {
+    return (
+      <View style={[styles.card, styles.cardListLayout, styles.cardLead]}>
+        <View style={styles.leadHeader}>
+          <View style={styles.rankPill}>
+            <Text style={styles.rankPillText}>今日 #{rank ?? 1}</Text>
+          </View>
+          {compareButton}
+        </View>
+
+        <TouchableOpacity style={styles.leadIdentity} activeOpacity={0.75} onPress={handleNameAreaPress}>
+          {avatar}
           <View style={styles.infoContainer}>
-            <Text style={[styles.name, isSeasonVariant && styles.nameSeason]} numberOfLines={1}>{performer.name}</Text>
-            <Text style={[styles.team, isSeasonVariant && styles.teamSeason]}>{performer.teamNameZhCN || performer.teamAbbreviation}</Text>
+            <Text style={styles.nameLead} numberOfLines={1}>{performer.name}</Text>
+            <Text style={styles.teamLead} numberOfLines={1}>
+              {performer.teamNameZhCN || performer.teamAbbreviation}
+            </Text>
+          </View>
+          <View style={styles.leadScoreBlock}>
+            <Text style={styles.leadScoreLabel}>{statLabel()}</Text>
+            <Text style={styles.leadScoreValue}>{performer.value}</Text>
           </View>
         </TouchableOpacity>
-        {/* Compare: today = link-style; season = previous bordered button */}
-        {showCompare && (
-          <TouchableOpacity
-            style={[styles.compareButton, isSeasonVariant && styles.compareButtonSeason]}
-            activeOpacity={0.7}
-            onPress={() => onCompare(performer.id, isGis ? 'points' : performer.statType)}
-          >
-            <Ionicons name="git-compare-outline" size={isSeasonVariant ? 16 : 14} color={isSeasonVariant ? COLORS.textMain : COLORS.accent} style={styles.compareIcon} />
-            <Text style={[styles.compareText, isSeasonVariant && styles.compareTextSeason]}>对比</Text>
-          </TouchableOpacity>
+
+        {statItems.length > 0 && (
+          <View style={styles.leadStatsGrid}>
+            {statItems.map((item) => (
+              <View key={item.unit} style={styles.leadStatCell}>
+                <Text style={styles.leadStatValue}>{item.value}</Text>
+                <Text style={styles.leadStatUnit}>{item.unit}</Text>
+              </View>
+            ))}
+          </View>
         )}
+
+        {performer.insight ? (
+          <View style={styles.leadInsight}>
+            <Text style={styles.leadInsightText} numberOfLines={2}>{performer.insight}</Text>
+          </View>
+        ) : null}
+      </View>
+    );
+  }
+
+  if (isSupporting) {
+    return (
+      <View style={[styles.card, styles.cardListLayout, styles.cardSupporting]}>
+        <TouchableOpacity style={styles.supportingContent} activeOpacity={0.75} onPress={handleNameAreaPress}>
+          <Text style={styles.supportRank}>{rank ?? ''}</Text>
+          {avatar}
+          <View style={styles.infoContainer}>
+            <Text style={styles.nameSupporting} numberOfLines={1}>{performer.name}</Text>
+            <Text style={styles.teamSupporting} numberOfLines={1}>
+              {performer.teamNameZhCN || performer.teamAbbreviation}
+            </Text>
+          </View>
+          <View style={styles.supportScore}>
+            <Text style={styles.supportScoreValue}>{performer.value}</Text>
+            <Text style={styles.supportScoreLabel}>{statLabel()}</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (isSeasonVariant && listLayout) {
+    return (
+      <TouchableOpacity style={styles.seasonRowCard} activeOpacity={0.75} onPress={handleNameAreaPress}>
+        <Text style={styles.seasonRowRank}>{rank ? `#${rank}` : ''}</Text>
+        {avatar}
+        <View style={styles.infoContainer}>
+          <Text style={styles.seasonRowName} numberOfLines={1}>{performer.name}</Text>
+          <Text style={styles.seasonRowTeam} numberOfLines={1}>
+            {performer.teamNameZhCN || performer.teamAbbreviation}
+          </Text>
+        </View>
+        <View style={styles.seasonRowValueBlock}>
+          <Text style={styles.seasonRowValue}>{performer.value}</Text>
+          <Text style={styles.seasonRowLabel}>{statLabel()}</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <View
+      style={[
+        styles.card,
+        listLayout && styles.cardListLayout,
+        isSeasonVariant && styles.cardSeason,
+      ]}
+    >
+      <View style={styles.topRow}>
+        <TouchableOpacity style={styles.nameAreaTouchable} activeOpacity={0.7} onPress={handleNameAreaPress}>
+          {avatar}
+          <View style={styles.infoContainer}>
+            <Text style={[styles.name, isSeasonVariant && styles.nameSeason]} numberOfLines={1}>
+              {performer.name}
+            </Text>
+            <Text style={[styles.team, isSeasonVariant && styles.teamSeason]} numberOfLines={1}>
+              {performer.teamNameZhCN || performer.teamAbbreviation}
+            </Text>
+          </View>
+        </TouchableOpacity>
+        {compareButton}
       </View>
 
-      {/* Season: stat row (big value + label) */}
-      {isSeasonVariant && (
-        <View style={styles.statRow}>
-          <Text style={styles.statValue}>{performer.value}</Text>
+      {isSeasonVariant ? (
+        <View style={styles.seasonValueRow}>
+          <Text style={[styles.statValue, rank === 1 && styles.statValueTop]}>{performer.value}</Text>
           <Text style={styles.statLabel}>{statLabel()}</Text>
         </View>
-      )}
+      ) : null}
 
-      {/* One row: left = stats (PTS · REB · AST), right = GIS */}
-      {(!isSeasonVariant && (statItems.length > 0 || isGis)) && (
+      {!isSeasonVariant && (statItems.length > 0 || isGis) ? (
         <View style={styles.statsAndGisRow}>
           <View style={styles.statsRow}>
             {statItems.map((item, index) => (
@@ -142,14 +255,13 @@ export const HomePlayerCard: React.FC<HomePlayerCardProps> = ({
             </Text>
           </View>
         </View>
-      )}
+      ) : null}
 
-      {/* Insight (today only) */}
-      {!isSeasonVariant && performer.insight && (
+      {!isSeasonVariant && performer.insight ? (
         <View style={styles.insightContainer}>
           <Text style={styles.insightText} numberOfLines={listLayout ? undefined : 2}>{performer.insight}</Text>
         </View>
-      )}
+      ) : null}
     </View>
   );
 };
@@ -157,21 +269,55 @@ export const HomePlayerCard: React.FC<HomePlayerCardProps> = ({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 16,
-    width: 160,
+    borderRadius: 14,
+    padding: 14,
+    width: 164,
     marginRight: 12,
     justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: COLORS.divider,
+    borderWidth: 0,
   },
   cardListLayout: {
     width: '100%',
     marginRight: 0,
-    marginBottom: 12,
+    marginBottom: 10,
+  },
+  cardLead: {
+    position: 'relative',
+    backgroundColor: COLORS.cardElevated,
+    padding: 16,
+    paddingLeft: 16,
+    overflow: 'hidden',
+  },
+  cardSupporting: {
+    position: 'relative',
+    backgroundColor: COLORS.cardMuted,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    overflow: 'hidden',
   },
   cardSeason: {
-    borderWidth: 0,
+    backgroundColor: COLORS.cardMuted,
+  },
+  leadHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  rankPill: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  rankPillText: {
+    color: COLORS.textMain,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  leadIdentity: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   topRow: {
     flexDirection: 'row',
@@ -191,6 +337,20 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: COLORS.header,
     marginRight: 10,
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle,
+  },
+  avatarLead: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    marginRight: 12,
+  },
+  avatarSupporting: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    marginRight: 10,
   },
   initialsAvatar: {
     width: 40,
@@ -200,6 +360,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle,
   },
   initialsText: {
     color: COLORS.textSecondary,
@@ -213,37 +375,183 @@ const styles = StyleSheet.create({
   },
   name: {
     color: COLORS.textMain,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
   },
   team: {
     color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  nameLead: {
+    color: COLORS.textMain,
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  teamLead: {
+    color: COLORS.textSecondary,
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  nameSupporting: {
+    color: COLORS.textMain,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  teamSupporting: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
     marginTop: 2,
   },
   nameSeason: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   teamSeason: {
     fontSize: 12,
+  },
+  leadScoreBlock: {
+    alignItems: 'flex-end',
+    marginLeft: 8,
+  },
+  leadScoreLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  leadScoreValue: {
+    color: COLORS.textMain,
+    fontSize: 34,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  leadStatsGrid: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 14,
+  },
+  leadStatCell: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.045)',
+    borderRadius: 10,
+    paddingVertical: 9,
+    alignItems: 'center',
+  },
+  leadStatValue: {
+    color: COLORS.textMain,
+    fontSize: 22,
+    fontWeight: '900',
+  },
+  leadStatUnit: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  leadInsight: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderSubtle,
+  },
+  leadInsightText: {
+    color: '#A8B0B8',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
+  },
+  supportingContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  supportRank: {
+    width: 22,
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  supportScore: {
+    alignItems: 'flex-end',
+    marginLeft: 8,
+  },
+  supportScoreValue: {
+    color: COLORS.textMain,
+    fontSize: 22,
+    fontWeight: '900',
+  },
+  supportScoreLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 1,
+  },
+  seasonRowCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 64,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  seasonRowRank: {
+    width: 28,
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  seasonRowName: {
+    color: COLORS.textMain,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  seasonRowTeam: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  seasonRowValueBlock: {
+    alignItems: 'flex-end',
+    marginLeft: 12,
+    minWidth: 58,
+  },
+  seasonRowValue: {
+    color: COLORS.textMain,
+    fontSize: 22,
+    fontWeight: '900',
+  },
+  seasonRowLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 1,
   },
   statRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
     marginBottom: 12,
   },
+  seasonValueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
   statValue: {
     color: COLORS.textMain,
-    fontSize: 24,
-    fontWeight: '800',
-    marginRight: 4,
+    fontSize: 26,
+    fontWeight: '900',
+    marginRight: 5,
+  },
+  statValueTop: {
+    color: COLORS.textMain,
   },
   statLabel: {
     color: COLORS.textSecondary,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   valueBlock: {
     alignItems: 'flex-end',
@@ -252,26 +560,16 @@ const styles = StyleSheet.create({
   valueLabelSwish: {
     color: COLORS.textSecondary,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     marginRight: 4,
   },
   valueNumber: {
     color: COLORS.textMain,
     fontSize: 20,
-    fontWeight: '800',
+    fontWeight: '900',
   },
   valueNumberAccent: {
     color: COLORS.accent,
-  },
-  valueLabel: {
-    color: COLORS.textSecondary,
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  valueLabelAccent: {
-    color: COLORS.accent,
-    fontSize: 11,
   },
   statsAndGisRow: {
     flexDirection: 'row',
@@ -292,12 +590,12 @@ const styles = StyleSheet.create({
   statSegmentValue: {
     color: COLORS.textMain,
     fontSize: 24,
-    fontWeight: '800',
+    fontWeight: '900',
   },
   statSegmentUnit: {
     color: COLORS.textSecondary,
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
     marginLeft: 4,
   },
   statSegmentDot: {
@@ -311,12 +609,6 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: COLORS.divider,
-  },
-  insightLabel: {
-    color: COLORS.accent,
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 4,
   },
   insightText: {
     color: COLORS.textSecondary,
@@ -345,7 +637,7 @@ const styles = StyleSheet.create({
   compareText: {
     color: COLORS.accent,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   compareTextSeason: {
     color: COLORS.textMain,

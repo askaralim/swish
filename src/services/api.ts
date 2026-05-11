@@ -74,7 +74,12 @@ async function apiRequest(endpoint: string, options: RequestInit = {}, returnFul
 /**
  * GET request helper
  */
-export async function apiGet(endpoint: string, params: Record<string, any> = {}, returnFullResponse: boolean = false) {
+export async function apiGet(
+  endpoint: string,
+  params: Record<string, any> = {},
+  returnFullResponse: boolean = false,
+  signal?: AbortSignal
+) {
   const queryString = new URLSearchParams(
     Object.entries(params).reduce((acc, [key, value]) => {
       if (value !== null && value !== undefined) {
@@ -83,9 +88,9 @@ export async function apiGet(endpoint: string, params: Record<string, any> = {},
       return acc;
     }, {} as Record<string, string>)
   ).toString();
-  
+
   const url = queryString ? `${endpoint}?${queryString}` : endpoint;
-  return apiRequest(url, { method: 'GET' }, returnFullResponse);
+  return apiRequest(url, { method: 'GET', signal }, returnFullResponse);
 }
 
 /**
@@ -163,9 +168,10 @@ export type SeasonLeadersPayload = {
 
 /** Always pass explicit seasontype (2=regular, 3=postseason). Omitting it uses ESPN "auto" which follows the current segment — during playoffs that is postseason, which mismatched the 常规赛 tab on home. */
 export async function fetchSeasonLeaders(
-  seasontype: number = SEASON_TYPES.REGULAR
+  seasontype: number = SEASON_TYPES.REGULAR,
+  signal?: AbortSignal
 ): Promise<SeasonLeadersPayload> {
-  return apiGet('/api/v1/nba/seasonLeaders', { seasontype }) as Promise<SeasonLeadersPayload>;
+  return apiGet('/api/v1/nba/seasonLeaders', { seasontype }, false, signal) as Promise<SeasonLeadersPayload>;
 }
 
 export async function fetchGames(date?: Date, featured: boolean = false) {
@@ -238,24 +244,31 @@ export async function fetchPlayerStats(params: {
   page?: number;
   limit?: number;
   sort?: string;
+  signal?: AbortSignal;
 } = {}) {
   const {
     season = CURRENT_SEASON,
     position = 'all-positions',
     conference = '0',
     page = 1,
-    limit = 100, 
-    sort = 'offensive.avgPoints:desc'
+    limit = 100,
+    sort = 'offensive.avgPoints:desc',
+    signal,
   } = params;
-  
-  return apiGet('/api/v1/nba/stats/players', {
-    season,
-    position,
-    conference,
-    page,
-    limit,
-    sort
-  });
+
+  return apiGet(
+    '/api/v1/nba/stats/players',
+    {
+      season,
+      position,
+      conference,
+      page,
+      limit,
+      sort,
+    },
+    false,
+    signal
+  );
 }
 
 /**
