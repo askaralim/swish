@@ -90,6 +90,7 @@ yarn-error.*
 
 # Local Cursor / Claude agent skills (not required for builds)
 .claude/
+.agents/
 
 # tools
 tools/

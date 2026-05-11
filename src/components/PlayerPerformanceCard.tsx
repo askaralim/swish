@@ -15,28 +15,28 @@ type TierVisual = {
 };
 
 function getTierVisual(gis: number): TierVisual {
-  if (gis >= 30) {
+  if (gis >= 50) {
     return {
       icon: 'trophy',
       gradient: ['#292524', '#a16207', '#eab308'] as const,
       iconBubble: 'rgba(0,0,0,0.35)',
     };
   }
-  if (gis >= 22) {
+  if (gis >= 40) {
     return {
       icon: 'flash',
       gradient: ['#1e1b4b', '#6d28d9', '#a78bfa'] as const,
       iconBubble: 'rgba(0,0,0,0.3)',
     };
   }
-  if (gis >= 15) {
+  if (gis >= 30) {
     return {
       icon: 'trending-up',
       gradient: ['#0c1222', '#1d4ed8', '#38bdf8'] as const,
       iconBubble: 'rgba(0,0,0,0.28)',
     };
   }
-  if (gis >= 8) {
+  if (gis >= 20) {
     return {
       icon: 'pulse',
       gradient: ['#052e16', '#047857', '#34d399'] as const,
@@ -208,7 +208,7 @@ export function PlayerPerformanceCard({
 
       <View style={styles.branding}>
         <View style={styles.brandingCopy}>
-          <Text style={styles.brandText}>唰数据</Text>
+          <Text style={styles.brandText}>唰数据App，一键生成你的球员报告</Text>
           <Text style={styles.brandTag}>swishinsight.com</Text>
         </View>
         <View style={styles.qrWrap}>
@@ -439,8 +439,8 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   brandText: {
-    color: COLORS.accent,
-    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontSize: 10,
     fontWeight: '900',
     letterSpacing: 1,
   },
