@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   View, 
   Text, 
@@ -6,31 +6,28 @@ import {
   StyleSheet, 
   TouchableOpacity, 
   Image, 
-  ActivityIndicator, 
   Dimensions, 
-  Animated, 
-  Easing, 
   Platform 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { fetchPlayerStats, fetchAppConfig } from '../src/services/api';
+import { fetchPlayerStats, fetchAppConfig } from '../../src/services/api';
 import {
   SEASON_TYPES,
   buildSeasonParam,
   getSeasonSubtitle,
   CURRENT_SEASON_YEAR,
-} from '../src/constants/season';
-import { STAT_SECTIONS } from '../src/config/playerStats';
-import { PlayerStatsResponse, Player } from '../src/types/player';
+} from '../../src/constants/season';
+import { STAT_SECTIONS } from '../../src/config/playerStats';
+import { PlayerStatsResponse, Player } from '../../src/types/player';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, MOTION } from '../src/constants/theme';
-import { AnimatedSection } from '../src/components/AnimatedSection';
-import { Skeleton } from '../src/components/Skeleton';
-import { ErrorState } from '../src/components/ErrorState';
-import { ScreenHeader } from '../src/components/ScreenHeader';
+import { COLORS } from '../../src/constants/theme';
+import { AnimatedSection } from '../../src/components/AnimatedSection';
+import { Skeleton } from '../../src/components/Skeleton';
+import { ErrorState } from '../../src/components/ErrorState';
+import { ScreenHeader } from '../../src/components/ScreenHeader';
 
 const { width } = Dimensions.get('window');
 
@@ -71,10 +68,18 @@ export default function PlayersStatsScreen() {
     }
   }, [showPostseasonStatsToggle, viewPostseasonStats]);
 
+  const sectionsWithData = useMemo(
+    () =>
+      STAT_SECTIONS.filter((section) => {
+        const categoryData = data?.topPlayersByStat?.[section.statName];
+        return Array.isArray(categoryData?.players) && categoryData.players.length > 0;
+      }),
+    [data]
+  );
+
   const renderPlayerCard = (player: Player, statName: string) => {
     const stat = player.stats[statName];
     const statValue = stat?.displayValue || '-';
-    const gamesPlayed = player.stats.gamesPlayed?.displayValue || '-';
     const rank = player.statRank;
 
     const getRankBadgeColor = () => {
@@ -205,6 +210,10 @@ export default function PlayersStatsScreen() {
         ? `${leagueDisplay} 赛季 • ${data.metadata.seasonType}`
         : `${data.metadata.season} • ${data.metadata.seasonType}`
       : getSeasonSubtitle(SEASON_TYPES.REGULAR, leagueDisplay);
+  const emptyTitle = viewPostseasonStats ? '暂无季后赛榜单' : '暂无常规赛榜单';
+  const emptyMessage = viewPostseasonStats
+    ? '季后赛数据可用后会显示在这里。'
+    : '当前赛季榜单暂时没有可显示的数据。';
 
   return (
     <View style={styles.container}>
@@ -254,7 +263,18 @@ export default function PlayersStatsScreen() {
           </View>
         )}
         <View style={styles.sectionsList}>
-          {STAT_SECTIONS.map((section, index) => renderStatSection(section, index))}
+          {sectionsWithData.length > 0 ? (
+            sectionsWithData.map((section, index) => renderStatSection(section, index))
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons name="stats-chart-outline" size={28} color={COLORS.textSecondary} />
+              <Text style={styles.emptyTitle}>{emptyTitle}</Text>
+              <Text style={styles.emptyMessage}>{emptyMessage}</Text>
+              <TouchableOpacity style={styles.emptyRetryButton} onPress={() => refetch()}>
+                <Text style={styles.emptyRetryText}>重新加载</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -335,6 +355,41 @@ const styles = StyleSheet.create({
   },
   sectionsList: {
     paddingTop: 10,
+  },
+  emptyState: {
+    marginHorizontal: 16,
+    marginTop: 96,
+    padding: 24,
+    alignItems: 'center',
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+  },
+  emptyTitle: {
+    color: COLORS.textMain,
+    fontSize: 17,
+    fontWeight: '700',
+    marginTop: 12,
+  },
+  emptyMessage: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginTop: 6,
+  },
+  emptyRetryButton: {
+    marginTop: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    backgroundColor: COLORS.cardSecondary,
+    borderRadius: 18,
+  },
+  emptyRetryText: {
+    color: COLORS.textMain,
+    fontSize: 13,
+    fontWeight: '700',
   },
   statSection: {
     marginBottom: 20,

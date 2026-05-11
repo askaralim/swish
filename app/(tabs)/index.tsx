@@ -11,15 +11,15 @@ import {
 } from 'react-native';
 import { useRouter, Link } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { fetchGames, fetchTodayTopPerformers, fetchSeasonLeaders, fetchAppConfig, formatDateForAPI, getChineseDate } from '../src/services/api';
-import { SEASON_TYPES, getSeasonSubtitle } from '../src/constants/season';
-import { getTeamImage } from '../src/utils/teamImages';
-import { COLORS } from '../src/constants/theme';
-import { AnimatedSection } from '../src/components/AnimatedSection';
-import { Skeleton } from '../src/components/Skeleton';
-import { ErrorState } from '../src/components/ErrorState';
-import { HomePlayerCard, TopPerformer } from '../src/components/HomePlayerCard';
-import { ScreenHeader } from '../src/components/ScreenHeader';
+import { fetchGames, fetchTodayTopPerformers, fetchSeasonLeaders, fetchAppConfig, formatDateForAPI, getChineseDate } from '../../src/services/api';
+import { SEASON_TYPES, getSeasonSubtitle } from '../../src/constants/season';
+import { getTeamImage } from '../../src/utils/teamImages';
+import { COLORS } from '../../src/constants/theme';
+import { AnimatedSection } from '../../src/components/AnimatedSection';
+import { Skeleton } from '../../src/components/Skeleton';
+import { ErrorState } from '../../src/components/ErrorState';
+import { HomePlayerCard, TopPerformer } from '../../src/components/HomePlayerCard';
+import { ScreenHeader } from '../../src/components/ScreenHeader';
 import { Ionicons } from '@expo/vector-icons';
 import { usePostHog } from 'posthog-react-native';
 

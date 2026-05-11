@@ -12,6 +12,7 @@ import { getTeamImage } from '../../../src/utils/teamImages';
 import { PlayerPickerModal } from '../../../src/components/PlayerPickerModal';
 import { Ionicons } from '@expo/vector-icons';
 import { usePostHog } from 'posthog-react-native';
+import { goBackOrReplace } from '../../../src/utils/navigation';
 
 
 interface PlayerData {
@@ -272,7 +273,7 @@ export default function PlayerComparisonScreen() {
       
       {/* Header with Player Selectors */}
       <View style={[styles.header, { paddingTop: insets.top }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, '/players')} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={COLORS.textMain} />
         </TouchableOpacity>
         

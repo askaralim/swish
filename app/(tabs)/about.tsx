@@ -12,13 +12,13 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Application from 'expo-application';
-import { COLORS } from '../src/constants/theme';
-import { ScreenHeader } from '../src/components/ScreenHeader';
-import { getPushOptIn, setPushOptIn } from '../src/services/pushPreferences';
+import { COLORS } from '../../src/constants/theme';
+import { ScreenHeader } from '../../src/components/ScreenHeader';
+import { getPushOptIn, setPushOptIn } from '../../src/services/pushPreferences';
 import {
   registerForPushNotifications,
   sendPushTokenToServer,
-} from '../src/services/notifications';
+} from '../../src/services/notifications';
 import { usePostHog } from 'posthog-react-native';
 
 export default function AboutScreen() {

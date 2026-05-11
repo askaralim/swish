@@ -27,6 +27,7 @@ import {
 } from '@/src/components/ShareablePlayerPerformanceCard';
 import type { PlayerPerformanceCardData } from '@/src/components/PlayerPerformanceCard';
 import { usePostHog } from 'posthog-react-native';
+import { goBackOrReplace } from '@/src/utils/navigation';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width - 40;
@@ -185,7 +186,7 @@ export default function PlayerGamePerformanceScreen() {
       <View style={styles.container}>
         <View style={{ backgroundColor: COLORS.bg, paddingTop: insets.top }}>
           <View style={styles.navBar}>
-            <TouchableOpacity onPress={() => router.push(`/game/${id}`)} style={styles.navButton}>
+            <TouchableOpacity onPress={() => goBackOrReplace(router, `/game/${id}`)} style={styles.navButton}>
               <Ionicons name="chevron-back" size={24} color={COLORS.textMain} />
             </TouchableOpacity>
             <Text style={styles.navTitle}>表现卡</Text>
@@ -243,7 +244,7 @@ export default function PlayerGamePerformanceScreen() {
     <View style={styles.container}>
       <View style={{ backgroundColor: COLORS.bg, paddingTop: insets.top }}>
         <View style={styles.navBar}>
-          <TouchableOpacity onPress={() => router.push(`/game/${id}`)} style={styles.navButton}>
+          <TouchableOpacity onPress={() => goBackOrReplace(router, `/game/${id}`)} style={styles.navButton}>
             <Ionicons name="chevron-back" size={24} color={COLORS.textMain} />
           </TouchableOpacity>
           <Text style={styles.navTitle}>表现卡</Text>

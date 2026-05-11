@@ -20,6 +20,7 @@ import { GameCard, Game } from '../src/components/GameCard';
 import { Skeleton } from '../src/components/Skeleton';
 import { ErrorState } from '../src/components/ErrorState';
 import { Ionicons } from '@expo/vector-icons';
+import { goBackOrReplace } from '../src/utils/navigation';
 
 const { width: windowWidth } = Dimensions.get('window');
 
@@ -164,7 +165,7 @@ export default function FullGamesScreen() {
         {/* Nav Bar */}
         <View style={styles.navBar}>
           <TouchableOpacity 
-            onPress={() => router.back()} 
+            onPress={() => goBackOrReplace(router, '/')} 
             style={styles.navButton}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >

@@ -27,11 +27,12 @@ import { AnimatedSection } from '../../src/components/AnimatedSection';
 import { Skeleton } from '../../src/components/Skeleton';
 import { ErrorState } from '../../src/components/ErrorState';
 import { DetailScreenHeader } from '../../src/components/DetailScreenHeader';
+import { goBackOrReplace } from '../../src/utils/navigation';
 
 const { width } = Dimensions.get('window');
 
-const HEADER_EXPANDED_HEIGHT = 160;
-const HEADER_COLLAPSED_HEIGHT = 100;
+const HEADER_EXPANDED_HEIGHT = 108;
+const HEADER_COLLAPSED_HEIGHT = 108;
 
 // --- Types ---
 
@@ -177,23 +178,11 @@ export default function TeamDetailScreen() {
     extrapolate: 'clamp',
   });
 
-  const expandedOpacity = scrollY.interpolate({
-    inputRange: [0, 60],
-    outputRange: [1, 0],
-    extrapolate: 'clamp',
-  });
-
-  const collapsedOpacity = scrollY.interpolate({
-    inputRange: [40, 80],
-    outputRange: [0, 1],
-    extrapolate: 'clamp',
-  });
-
   if (isLoadingOverview) {
     return (
       <View style={styles.container}>
         <View style={[styles.header, { height: HEADER_EXPANDED_HEIGHT + insets.top, paddingTop: insets.top, backgroundColor: COLORS.header }]}>
-          <DetailScreenHeader onBack={() => router.back()} paddingTop={0}>
+          <DetailScreenHeader onBack={() => goBackOrReplace(router, '/teams')} paddingTop={0}>
           <View style={styles.expandedContent}>
             <View style={styles.headerTop}>
               <Skeleton width={64} height={64} borderRadius={12} />
@@ -567,26 +556,20 @@ export default function TeamDetailScreen() {
     <View style={styles.container}>
       <Animated.View style={[styles.header, { height: headerHeight, paddingTop: insets.top, opacity: headerOpacity }]}>
         <DetailScreenHeader
-          onBack={() => router.back()}
-          center={
-            <Animated.View style={[styles.compactHeader, { opacity: collapsedOpacity }]}>
-              <Image source={getTeamImage(team.abbreviation)} style={styles.compactLogo} />
-              <Text style={styles.compactTitle} numberOfLines={1} ellipsizeMode="tail">{team.nameZhCN || team.name}</Text>
-            </Animated.View>
+          onBack={() => goBackOrReplace(router, '/teams')}
+          leading={
+            <View style={styles.identityRow}>
+              <Image source={getTeamImage(team.abbreviation)} style={styles.identityLogo} />
+              <View style={styles.identityText}>
+                <Text style={styles.teamCity} numberOfLines={1}>{team.cityZhCN || team.city}</Text>
+                <Text style={styles.teamNameMain} numberOfLines={1}>{team.nameZhCN || team.name}</Text>
+                <Text style={styles.teamRecord} numberOfLines={1}>{team.record} • {team.standingSummary}</Text>
+              </View>
+            </View>
           }
+          navBarHeight={64}
           paddingTop={0}
         >
-        <Animated.View style={[styles.expandedContent, { opacity: expandedOpacity }]}>
-          <View style={styles.headerTop}>
-            <Image source={getTeamImage(team.abbreviation)} style={styles.mainLogo} />
-            <View style={styles.headerInfo}>
-              <Text style={styles.teamCity} numberOfLines={1}>{team.cityZhCN || team.city}</Text>
-              <Text style={styles.teamNameMain} numberOfLines={2}>{team.nameZhCN || team.name}</Text>
-              <Text style={styles.teamRecord} numberOfLines={1}>{team.record} • {team.standingSummary}</Text>
-            </View>
-          </View>
-        </Animated.View>
-
         <View style={styles.tabsContainer}>
           <View style={styles.tabs}>
             <TouchableOpacity onPress={() => handleTabChange('overview')} style={styles.tab}>
@@ -689,8 +672,23 @@ const styles = StyleSheet.create({
   },
   expandedContent: {
     paddingHorizontal: 20,
-    paddingTop: 10,
-    height: 100,
+    paddingTop: 6,
+    height: 98,
+  },
+  identityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minWidth: 0,
+  },
+  identityLogo: {
+    width: 44,
+    height: 44,
+    flexShrink: 0,
+  },
+  identityText: {
+    flex: 1,
+    minWidth: 0,
   },
   headerTop: {
     flexDirection: 'row',
@@ -698,8 +696,8 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   mainLogo: {
-    width: 64,
-    height: 64,
+    width: 52,
+    height: 52,
     flexShrink: 0,
   },
   headerInfo: {
@@ -713,7 +711,7 @@ const styles = StyleSheet.create({
   },
   teamNameMain: {
     color: COLORS.textMain,
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
     marginVertical: 2,
   },
@@ -723,11 +721,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   tabsContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 48,
+    height: 44,
     backgroundColor: COLORS.header,
     borderBottomWidth: 0.5,
     borderBottomColor: COLORS.divider,

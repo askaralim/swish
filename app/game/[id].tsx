@@ -32,11 +32,12 @@ import { Skeleton } from '../../src/components/Skeleton';
 import { ErrorState } from '../../src/components/ErrorState';
 import { DetailScreenHeader } from '../../src/components/DetailScreenHeader';
 import { usePostHog } from 'posthog-react-native';
+import { goBackOrReplace } from '../../src/utils/navigation';
 
 const { width } = Dimensions.get('window');
 
-const HEADER_EXPANDED_HEIGHT = 180;
-const HEADER_COLLAPSED_HEIGHT = 100;
+const HEADER_EXPANDED_HEIGHT = 156;
+const HEADER_COLLAPSED_HEIGHT = 76;
 
 const AnimatedStatBar = ({ awayPct, homePct, visible }: { awayPct: number, homePct: number, visible: boolean }) => {
   const widthAnim = useRef(new Animated.Value(0)).current;
@@ -188,9 +189,9 @@ export default function GameDetailScreen() {
 
   const handleBack = () => {
     if (from === 'fullgames') {
-      router.replace('/fullgames');
+      goBackOrReplace(router, '/fullgames');
     } else {
-      router.back();
+      goBackOrReplace(router, '/');
     }
   };
   const insets = useSafeAreaInsets();
@@ -1361,17 +1362,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingBottom: 48, // Added space above tabs
-    height: 120,
+    paddingBottom: 44,
+    height: 108,
   },
   teamContainer: {
     alignItems: 'center',
     width: 100,
   },
   logo: {
-    width: 44,
-    height: 44,
-    marginBottom: 8,
+    width: 38,
+    height: 38,
+    marginBottom: 6,
   },
   teamName: {
     color: COLORS.textMain,
@@ -1383,7 +1384,7 @@ const styles = StyleSheet.create({
   },
   mainScore: {
     color: COLORS.textMain,
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: '700',
     letterSpacing: -1,
   },
@@ -1416,7 +1417,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 48,
+    height: 44,
     backgroundColor: COLORS.header,
   },
   tabs: {

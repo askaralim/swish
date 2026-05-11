@@ -30,10 +30,11 @@ import { Skeleton } from '../../src/components/Skeleton';
 import { ErrorState } from '../../src/components/ErrorState';
 import { DetailScreenHeader } from '../../src/components/DetailScreenHeader';
 import { usePostHog } from 'posthog-react-native';
+import { goBackOrReplace } from '../../src/utils/navigation';
 
 const { width } = Dimensions.get('window');
-const HEADER_EXPANDED_HEIGHT = 180;
-const HEADER_COLLAPSED_HEIGHT = 96;
+const HEADER_EXPANDED_HEIGHT = 108;
+const HEADER_COLLAPSED_HEIGHT = 108;
 
 export default function PlayerDetailScreen() {
   const { id: playerId } = useLocalSearchParams<{ id: string }>();
@@ -142,7 +143,7 @@ export default function PlayerDetailScreen() {
     return (
       <View style={styles.container}>
         <View style={[styles.header, { height: HEADER_EXPANDED_HEIGHT + insets.top, paddingTop: insets.top, backgroundColor: COLORS.header }]}>
-          <DetailScreenHeader onBack={() => router.back()} paddingTop={0}>
+          <DetailScreenHeader onBack={() => goBackOrReplace(router, '/players')} paddingTop={0}>
           <View style={styles.expandedContent}>
             <View style={styles.headerTop}>
               <Skeleton width={80} height={80} borderRadius={40} />
@@ -183,18 +184,6 @@ export default function PlayerDetailScreen() {
   const headerHeight = scrollY.interpolate({
     inputRange: [0, 120],
     outputRange: [HEADER_EXPANDED_HEIGHT + insets.top, HEADER_COLLAPSED_HEIGHT + insets.top],
-    extrapolate: 'clamp',
-  });
-
-  const expandedOpacity = scrollY.interpolate({
-    inputRange: [0, 80],
-    outputRange: [1, 0],
-    extrapolate: 'clamp',
-  });
-
-  const collapsedOpacity = scrollY.interpolate({
-    inputRange: [80, 120],
-    outputRange: [0, 1],
     extrapolate: 'clamp',
   });
 
@@ -307,10 +296,15 @@ export default function PlayerDetailScreen() {
       <View style={styles.tabContent}>
         <AnimatedSection index={0} visible={isDataLoaded}>
           <View style={styles.section}>
-            <Text style={styles.sectionHeader}>常规赛场均数据</Text>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionHeader}>常规赛场均数据</Text>
+              <View style={styles.tableHint}>
+                <Text style={styles.tableHintText}>左右滑动</Text>
+                <Ionicons name="swap-horizontal" size={13} color={COLORS.textSecondary} />
+              </View>
+            </View>
             
             <View style={styles.gridContainer}>
-              {/* Pinned Column (Season) */}
               <View style={styles.pinnedColumn}>
                 <View style={styles.tableHeader}>
                   <Text style={styles.seasonCol}>赛季</Text>
@@ -322,14 +316,21 @@ export default function PlayerDetailScreen() {
                 ))}
                 {totals.length > 0 && (
                   <View style={styles.totalsRow}>
-                    <Text style={styles.seasonColTotal}>生涯总计</Text>
+                    <Text style={styles.seasonColTotal}>生涯</Text>
                   </View>
                 )}
               </View>
 
-              {/* Scrollable Stats */}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View>
+              <ScrollView
+                horizontal
+                nestedScrollEnabled
+                directionalLockEnabled={false}
+                showsHorizontalScrollIndicator
+                indicatorStyle="white"
+                style={styles.statsScroll}
+                contentContainerStyle={styles.statsScrollContent}
+              >
+                <View style={styles.statsTable}>
                   <View style={styles.tableHeader}>
                     {labels.map((label: string, idx: number) => (
                       <Text key={idx} style={styles.statCol}>{label}</Text>
@@ -433,36 +434,31 @@ export default function PlayerDetailScreen() {
       {/* Animated Header */}
       <Animated.View style={[styles.header, { height: headerHeight, paddingTop: insets.top, opacity: headerOpacity }]}>
         <DetailScreenHeader
-          onBack={() => router.back()}
-          center={
-            <Animated.View style={[styles.compactHeader, { opacity: collapsedOpacity }]}>
-              {details.photo && <Image source={{ uri: details.photo }} style={styles.compactPhoto} />}
-              <Text style={styles.compactTitle}>{details.name}</Text>
-            </Animated.View>
+          onBack={() => goBackOrReplace(router, '/players')}
+          leading={
+            <View style={styles.identityRow}>
+              <View style={styles.identityPhoto}>
+                {details.photo && <Image source={{ uri: details.photo }} style={styles.mainPhoto} />}
+              </View>
+              <View style={styles.identityText}>
+                <View style={styles.teamRow}>
+                  {details.team?.abbreviation && (
+                    <Image source={getTeamImage(details.team.abbreviation)} style={styles.teamLogo} />
+                  )}
+                  <Text style={styles.teamName} numberOfLines={1}>
+                    {details.team?.cityZhCN} {details.team?.nameZhCN || 'Free Agent'}
+                  </Text>
+                </View>
+                <Text style={styles.playerNameMain} numberOfLines={1}>{details.name}</Text>
+                <Text style={styles.playerMeta} numberOfLines={1}>
+                  {details.jersey?.replace('##', '') || '-'} • {details.position || '-'}
+                </Text>
+              </View>
+            </View>
           }
+          navBarHeight={64}
           paddingTop={0}
         >
-        {/* Expanded Content */}
-        <Animated.View style={[styles.expandedContent, { opacity: expandedOpacity }]}>
-          <View style={styles.headerTop}>
-            <View style={styles.photoContainer}>
-              {details.photo && <Image source={{ uri: details.photo }} style={styles.mainPhoto} />}
-            </View>
-            <View style={styles.headerInfo}>
-              <View style={styles.teamRow}>
-                {details.team?.abbreviation && (
-                  <Image source={getTeamImage(details.team.abbreviation)} style={styles.teamLogo} />
-                )}
-                <Text style={styles.teamName}>{details.team?.cityZhCN} {details.team?.nameZhCN || 'Free Agent'}</Text>
-              </View>
-              <Text style={styles.playerNameMain}>{details.name}</Text>
-              <Text style={styles.playerMeta}>
-                {details.jersey?.replace('##', '') || '-'} • {details.position || '-'}
-              </Text>
-            </View>
-          </View>
-        </Animated.View>
-
         {/* Tabs */}
         <View style={styles.tabsContainer}>
           <View style={styles.tabs}>
@@ -577,8 +573,28 @@ const styles = StyleSheet.create({
   expandedContent: {
     height: HEADER_EXPANDED_HEIGHT - 46,
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 4,
     justifyContent: 'flex-start',
+  },
+  identityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minWidth: 0,
+  },
+  identityPhoto: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#1c1c1e',
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: '#2c2c2e',
+    flexShrink: 0,
+  },
+  identityText: {
+    flex: 1,
+    minWidth: 0,
   },
   headerTop: {
     flexDirection: 'row',
@@ -586,9 +602,9 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   photoContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: '#1c1c1e',
     overflow: 'hidden',
     borderWidth: 2,
@@ -630,22 +646,18 @@ const styles = StyleSheet.create({
   },
   playerNameMain: {
     color: COLORS.textMain,
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
     letterSpacing: -0.5,
   },
   playerMeta: {
     color: COLORS.textSecondary,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '500',
     marginTop: 2,
   },
   tabsContainer: {
-    height: 48,
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    height: 44,
     borderBottomWidth: 0.5,
     borderBottomColor: COLORS.divider,
     backgroundColor: COLORS.header,
@@ -710,8 +722,27 @@ const styles = StyleSheet.create({
     color: COLORS.textMain,
     fontSize: 17,
     fontWeight: '700',
-    marginBottom: 12,
     marginLeft: 4,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  tableHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    backgroundColor: COLORS.cardSecondary,
+  },
+  tableHintText: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    fontWeight: '700',
   },
   infoCard: {
     backgroundColor: COLORS.card,
@@ -757,12 +788,25 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.card,
     borderRadius: 16,
     overflow: 'hidden',
-    padding: 12,
+    paddingVertical: 12,
+    paddingLeft: 12,
   },
   pinnedColumn: {
-    width: 80,
+    width: 76,
     backgroundColor: COLORS.card,
     zIndex: 1,
+    borderRightWidth: 0.5,
+    borderRightColor: COLORS.divider,
+  },
+  statsScroll: {
+    flex: 1,
+  },
+  statsScrollContent: {
+    paddingLeft: 8,
+    paddingRight: 18,
+  },
+  statsTable: {
+    minWidth: 52 * 12,
   },
   tableHeader: {
     flexDirection: 'row',
@@ -773,13 +817,13 @@ const styles = StyleSheet.create({
     height: 32,
   },
   seasonCol: {
-    width: 80,
+    width: 76,
     color: COLORS.textSecondary,
     fontSize: 11,
     fontWeight: '700',
   },
   statCol: {
-    width: 45,
+    width: 52,
     textAlign: 'center',
     color: COLORS.textSecondary,
     fontSize: 11,
@@ -793,13 +837,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   seasonColText: {
-    width: 80,
+    width: 76,
     color: COLORS.textMain,
     fontSize: 13,
     fontWeight: '500',
   },
   statColText: {
-    width: 45,
+    width: 52,
     textAlign: 'center',
     color: COLORS.textMain,
     fontSize: 13,
@@ -815,13 +859,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   seasonColTotal: {
-    width: 80,
+    width: 76,
     color: COLORS.accent,
     fontSize: 13,
     fontWeight: '700',
   },
   statColTotal: {
-    width: 45,
+    width: 52,
     textAlign: 'center',
     color: COLORS.accent,
     fontSize: 13,

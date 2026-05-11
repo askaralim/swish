@@ -16,14 +16,14 @@ import {
   Platform
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { fetchStandings } from '../src/services/api';
-import { getTeamImage } from '../src/utils/teamImages';
-import { COLORS, MOTION } from '../src/constants/theme';
-import { CURRENT_SEASON_DISPLAY } from '../src/constants/season';
-import { AnimatedSection } from '../src/components/AnimatedSection';
-import { Skeleton } from '../src/components/Skeleton';
-import { ErrorState } from '../src/components/ErrorState';
-import { ScreenHeader } from '../src/components/ScreenHeader';
+import { fetchStandings } from '../../src/services/api';
+import { getTeamImage } from '../../src/utils/teamImages';
+import { COLORS, MOTION } from '../../src/constants/theme';
+import { CURRENT_SEASON_DISPLAY } from '../../src/constants/season';
+import { AnimatedSection } from '../../src/components/AnimatedSection';
+import { Skeleton } from '../../src/components/Skeleton';
+import { ErrorState } from '../../src/components/ErrorState';
+import { ScreenHeader } from '../../src/components/ScreenHeader';
 
 const { width } = Dimensions.get('window');
 
