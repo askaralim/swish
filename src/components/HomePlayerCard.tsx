@@ -27,6 +27,7 @@ interface HomePlayerCardProps {
   variant?: 'today' | 'season';
   presentation?: 'standard' | 'lead' | 'supporting';
   rank?: number;
+  gameContext?: string;
 }
 
 export const HomePlayerCard: React.FC<HomePlayerCardProps> = ({
@@ -39,6 +40,7 @@ export const HomePlayerCard: React.FC<HomePlayerCardProps> = ({
   variant = 'today',
   presentation = 'standard',
   rank,
+  gameContext,
 }) => {
   const isSeasonVariant = variant === 'season';
   const isLead = presentation === 'lead';
@@ -126,7 +128,7 @@ export const HomePlayerCard: React.FC<HomePlayerCardProps> = ({
       <View style={[styles.card, styles.cardListLayout, styles.cardLead]}>
         <View style={styles.leadHeader}>
           <View style={styles.rankPill}>
-            <Text style={styles.rankPillText}>今日 #{rank ?? 1}</Text>
+            <Text style={styles.rankPillText}>今日之星</Text>
           </View>
           {compareButton}
         </View>
@@ -138,6 +140,9 @@ export const HomePlayerCard: React.FC<HomePlayerCardProps> = ({
             <Text style={styles.teamLead} numberOfLines={1}>
               {performer.teamNameZhCN || performer.teamAbbreviation}
             </Text>
+            {gameContext ? (
+              <Text style={styles.gameContextLead} numberOfLines={1}>{gameContext}</Text>
+            ) : null}
           </View>
           <View style={styles.leadScoreBlock}>
             <Text style={styles.leadScoreLabel}>{statLabel()}</Text>
@@ -167,9 +172,8 @@ export const HomePlayerCard: React.FC<HomePlayerCardProps> = ({
 
   if (isSupporting) {
     return (
-      <View style={[styles.card, styles.cardListLayout, styles.cardSupporting]}>
-        <TouchableOpacity style={styles.supportingContent} activeOpacity={0.75} onPress={handleNameAreaPress}>
-          <Text style={styles.supportRank}>{rank ?? ''}</Text>
+      <View style={[styles.card, styles.cardListLayout, styles.cardSupportingFull]}>
+        <TouchableOpacity style={styles.supportingFullHeader} activeOpacity={0.75} onPress={handleNameAreaPress}>
           {avatar}
           <View style={styles.infoContainer}>
             <Text style={styles.nameSupporting} numberOfLines={1}>{performer.name}</Text>
@@ -177,11 +181,31 @@ export const HomePlayerCard: React.FC<HomePlayerCardProps> = ({
               {performer.teamNameZhCN || performer.teamAbbreviation}
             </Text>
           </View>
-          <View style={styles.supportScore}>
-            <Text style={styles.supportScoreValue}>{performer.value}</Text>
-            <Text style={styles.supportScoreLabel}>{statLabel()}</Text>
-          </View>
         </TouchableOpacity>
+        <View style={styles.supportBodyRow}>
+          <View style={styles.supportFullStatsRow}>
+            {statItems.map((item, index) => (
+              <React.Fragment key={item.unit}>
+                <View style={styles.supportFullStatItem}>
+                  <Text style={styles.supportFullStatValue}>{item.value}</Text>
+                  <Text style={styles.supportFullStatUnit}>{item.unit}</Text>
+                </View>
+                {index < statItems.length - 1 ? (
+                  <Text style={styles.supportFullStatDot}>·</Text>
+                ) : null}
+              </React.Fragment>
+            ))}
+          </View>
+          <Text>
+            <Text style={styles.supportFullScoreLabel}>Swish 评分 </Text>
+            <Text style={styles.supportFullScoreValue}>{performer.value}</Text>
+          </Text>
+        </View>
+        {performer.insight ? (
+          <View style={styles.supportInsightDivider}>
+            <Text style={styles.supportFullInsightText} numberOfLines={2}>{performer.insight}</Text>
+          </View>
+        ) : null}
       </View>
     );
   }
@@ -288,12 +312,9 @@ const styles = StyleSheet.create({
     paddingLeft: 16,
     overflow: 'hidden',
   },
-  cardSupporting: {
-    position: 'relative',
-    backgroundColor: COLORS.cardMuted,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    overflow: 'hidden',
+  cardSupportingFull: {
+    backgroundColor: COLORS.card,
+    padding: 14,
   },
   cardSeason: {
     backgroundColor: COLORS.cardMuted,
@@ -347,10 +368,10 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   avatarSupporting: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    marginRight: 10,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    marginRight: 12,
   },
   initialsAvatar: {
     width: 40,
@@ -395,14 +416,20 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 2,
   },
+  gameContextLead: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 4,
+  },
   nameSupporting: {
     color: COLORS.textMain,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
   },
   teamSupporting: {
     color: COLORS.textSecondary,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
     marginTop: 2,
   },
@@ -464,31 +491,66 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontWeight: '600',
   },
-  supportingContent: {
+  supportingFullHeader: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  supportRank: {
-    width: 22,
-    color: COLORS.textSecondary,
-    fontSize: 12,
-    fontWeight: '900',
-    textAlign: 'center',
+  supportBodyRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginTop: 14,
   },
-  supportScore: {
-    alignItems: 'flex-end',
-    marginLeft: 8,
+  supportFullStatsRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    flexWrap: 'wrap',
+    minWidth: 0,
   },
-  supportScoreValue: {
+  supportFullStatItem: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  supportFullStatValue: {
     color: COLORS.textMain,
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '900',
   },
-  supportScoreLabel: {
+  supportFullStatUnit: {
     color: COLORS.textSecondary,
-    fontSize: 10,
+    fontSize: 13,
     fontWeight: '700',
-    marginTop: 1,
+    marginLeft: 4,
+  },
+  supportFullStatDot: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    fontWeight: '400',
+    marginHorizontal: 8,
+  },
+  supportFullScoreLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  supportFullScoreValue: {
+    color: COLORS.textMain,
+    fontSize: 24,
+    fontWeight: '900',
+  },
+  supportInsightDivider: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.divider,
+  },
+  supportFullInsightText: {
+    color: '#8F969D',
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 19,
   },
   seasonRowCard: {
     flexDirection: 'row',

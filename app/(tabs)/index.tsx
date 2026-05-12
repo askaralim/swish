@@ -404,6 +404,30 @@ export default function HomeScreen() {
     );
   };
 
+  const getGameContext = (competitionId?: string) => {
+    if (!competitionId || !gamesResponse) return undefined;
+    const gamePool = [...(gamesResponse.games || []), ...(gamesResponse.featured || [])] as Game[];
+    const game = gamePool.find((item) => item.gameId === competitionId);
+    if (!game) return undefined;
+
+    const awayName = game.awayTeam.nameZhCN || game.awayTeam.abbreviation;
+    const homeName = game.homeTeam.nameZhCN || game.homeTeam.abbreviation;
+    const statusText =
+      game.gameStatus === 3
+        ? '已结束'
+        : game.gameStatus === 2
+          ? game.period && game.gameClock
+            ? `${game.period > 4 ? `OT${game.period - 4}` : `Q${game.period}`} ${game.gameClock}`
+            : '直播中'
+          : game.gameEtFormatted?.time || game.gameStatusText || '未开赛';
+
+    if (game.awayTeam.score != null && game.homeTeam.score != null) {
+      return `${awayName} ${game.awayTeam.score} - ${game.homeTeam.score} ${homeName} · ${statusText}`;
+    }
+
+    return `${awayName} vs ${homeName} · ${statusText}`;
+  };
+
   const renderPerformerSection = (title: string, data: TopPerformer[], showCompare: boolean = true, useListLayout: boolean = false, variant: 'today' | 'season' = 'today') => {
     if (!data || data.length === 0) return null;
     const isSeasonSection = variant === 'season';
@@ -415,6 +439,7 @@ export default function HomeScreen() {
       variant,
       showPlayerHeadshots,
       rank: index + 1,
+      gameContext: getGameContext(performer.competitionId),
       presentation:
         variant === 'today' && useListLayout
           ? index === 0
@@ -482,6 +507,53 @@ export default function HomeScreen() {
   const totalGamesCount = gamesResponse?.totalGames || 0;
   const featuredCount = featuredGamesRaw.length;
 
+  const renderGamesSection = () => (
+    <View style={styles.homeSection}>
+      <View style={[styles.sectionHeader, styles.sectionHeaderCompact]}>
+        <View>
+          <Text style={styles.sectionTitle}>今日比赛</Text>
+          {gamesResponse && (
+            <Text style={styles.gameCountText}>
+              · {totalGamesCount} 场比赛 · {featuredCount > 0 ? `${featuredCount} 焦点` : ''}
+            </Text>
+          )}
+        </View>
+      </View>
+
+      {!gamesResponse && !gamesError ? (
+        <View style={styles.list}>
+          {[1, 2].map((i) => (
+            <View key={i} style={styles.skeletonCard}>
+              <Skeleton width={'100%'} height={120} borderRadius={16} />
+            </View>
+          ))}
+        </View>
+      ) : gamesError ? (
+        <ErrorState message="无法获取比赛数据" onRetry={refetchGames} />
+      ) : (
+        <View style={styles.list}>
+          {gamesToShow.length > 0 ? (
+            gamesToShow.map((game: Game, index: number) => renderGame({ item: game, index }))
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>暂无焦点赛事</Text>
+            </View>
+          )}
+
+          <Link href="/fullgames" asChild>
+            <TouchableOpacity
+              style={styles.viewAllGamesButton}
+              activeOpacity={0.7}
+              onPress={() => posthog.capture('view_all_games_tapped', { total_games: totalGamesCount })}
+            >
+              <Text style={styles.viewAllGamesButtonText}>查看全部 {totalGamesCount} 场比赛</Text>
+            </TouchableOpacity>
+          </Link>
+        </View>
+      )}
+    </View>
+  );
+
   const hasTopPerformers = topPerformers.isGis
     ? topPerformers.performers.length > 0
     : ((topPerformers.points?.length ?? 0) > 0 || (topPerformers.rebounds?.length ?? 0) > 0 || (topPerformers.assists?.length ?? 0) > 0);
@@ -517,26 +589,22 @@ export default function HomeScreen() {
           />
         }
       >
-
-        {/* Top Performers Sections */}
-        {!topPerformersData ? (
-          <View style={{ padding: 16 }}>
-             <Skeleton width={150} height={20} marginBottom={14} />
-             <View style={{ flexDirection: 'row' }}>
-               <Skeleton width={160} height={140} borderRadius={16} marginRight={12} />
-               <Skeleton width={160} height={140} borderRadius={16} />
-             </View>
-          </View>
-        ) : hasTopPerformers ? (
-          <>
+        <View style={styles.homeSection}>
+          {/* Top Performers Sections */}
+          {!topPerformersData ? (
+            <View style={{ padding: 16 }}>
+               <Skeleton width={150} height={20} marginBottom={14} />
+               <View style={{ flexDirection: 'row' }}>
+                 <Skeleton width={160} height={140} borderRadius={16} marginRight={12} />
+                 <Skeleton width={160} height={140} borderRadius={16} />
+               </View>
+            </View>
+          ) : hasTopPerformers ? (
+            <>
             <View style={styles.performerSection}>
               <View style={styles.performerHeaderRow}>
                 <View>
-                  <Text style={styles.performerEyebrow}>DAILY IMPACT</Text>
-                  <Text style={styles.performerSectionHeader}>Swish 今日表现</Text>
-                </View>
-                <View style={styles.performerHeaderMeta}>
-                  <Text style={styles.performerHeaderBadgeText}>TOP 5</Text>
+                  <Text style={styles.performerSectionHeader}>今日影响力</Text>
                 </View>
               </View>
             </View>
@@ -549,12 +617,16 @@ export default function HomeScreen() {
                 {renderPerformerSection('助攻', topPerformers.assists ?? [])}
               </>
             )}
-          </>
-        ) : null}
+            </>
+          ) : null}
+        </View>
 
-        {/* Season Leaders Sections */}
-        {seasonLeadersError ? (
-          <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+        {renderGamesSection()}
+
+        <View style={styles.homeSection}>
+          {/* Season Leaders Sections */}
+          {seasonLeadersError ? (
+            <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
             <ErrorState
               message={
                 seasonLeadersError instanceof Error
@@ -563,17 +635,17 @@ export default function HomeScreen() {
               }
               onRetry={() => refetchSeasonLeaders()}
             />
-          </View>
-        ) : isColdStartSeasonLeaders ? (
-          <View style={{ padding: 16 }}>
+            </View>
+          ) : isColdStartSeasonLeaders ? (
+            <View style={{ padding: 16 }}>
             <Skeleton width={150} height={20} marginBottom={12} />
             <View style={{ flexDirection: 'row' }}>
               <Skeleton width={160} height={140} borderRadius={16} marginRight={12} />
               <Skeleton width={160} height={140} borderRadius={16} />
             </View>
-          </View>
-        ) : (
-          <>
+            </View>
+          ) : (
+            <>
             {showSeasonLeadersPlayoffToggle && (
               <View style={[styles.seasonSegmentRow, seasonLeadersSwitchBusy && styles.seasonSegmentRowBusy]}>
                 <TouchableOpacity
@@ -654,53 +726,9 @@ export default function HomeScreen() {
                   )}
               </>
             ) : null}
-          </>
-        )}
-
-        {/* Featured Games Section */}
-        <View style={styles.sectionHeader}>
-          <View>
-            <Text style={styles.sectionTitle}>今日比赛</Text>
-            {gamesResponse && (
-              <Text style={styles.gameCountText}>
-                · {totalGamesCount} 场比赛 · {featuredCount > 0 ? `${featuredCount} 焦点` : ''}
-              </Text>
-            )}
-          </View>
-
+            </>
+          )}
         </View>
-
-        {!gamesResponse && !gamesError ? (
-          <View style={styles.list}>
-            {[1, 2].map((i) => (
-              <View key={i} style={styles.skeletonCard}>
-                <Skeleton width={'100%'} height={120} borderRadius={16} />
-              </View>
-            ))}
-          </View>
-        ) : gamesError ? (
-          <ErrorState message="无法获取比赛数据" onRetry={refetchGames} />
-        ) : (
-          <View style={styles.list}>
-            {gamesToShow.length > 0 ? (
-              gamesToShow.map((game: Game, index: number) => renderGame({ item: game, index }))
-            ) : (
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>暂无焦点赛事</Text>
-              </View>
-            )}
-
-            <Link href="/fullgames" asChild>
-              <TouchableOpacity
-                style={styles.viewAllGamesButton}
-                activeOpacity={0.7}
-                onPress={() => posthog.capture('view_all_games_tapped', { total_games: totalGamesCount })}
-              >
-                <Text style={styles.viewAllGamesButtonText}>查看全部 {totalGamesCount} 场比赛</Text>
-              </TouchableOpacity>
-            </Link>
-          </View>
-        )}
 
       </ScrollView>
     </View>
@@ -712,6 +740,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.bg,
   },
+  homeSection: {
+    marginBottom: 24,
+  },
   performerSection: {
     marginTop: 14,
   },
@@ -719,7 +750,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    marginTop: 28,
+    marginTop: 0,
     marginBottom: 14,
     gap: 6,
   },
@@ -755,22 +786,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  performerEyebrow: {
-    color: COLORS.accent,
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-  performerHeaderMeta: {
-    paddingHorizontal: 2,
-    paddingVertical: 5,
-  },
-  performerHeaderBadgeText: {
-    color: COLORS.textSecondary,
-    fontSize: 11,
-    fontWeight: '900',
   },
   performerSectionTitle: {
     color: COLORS.textSecondary,
@@ -815,12 +830,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.06)',
   },
   sectionHeader: {
-    marginTop: 32,
+    marginTop: 0,
     marginBottom: 16,
     paddingHorizontal: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  sectionHeaderCompact: {
+    marginBottom: 12,
   },
   sectionTitle: {
     color: COLORS.textMain,
@@ -1055,7 +1073,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     marginHorizontal: 0,
     marginTop: 20,
-    marginBottom: 40,
+    marginBottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
