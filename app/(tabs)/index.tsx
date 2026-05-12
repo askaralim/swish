@@ -603,7 +603,11 @@ export default function HomeScreen() {
             <>
             <View style={styles.performerSection}>
               <View style={styles.performerHeaderRow}>
-                <View>
+                <View style={styles.performerTitleRow}>
+                  <View style={styles.impactFlameWrap} accessible={false}>
+                    <Ionicons name="flame" size={22} color="#5CB4FF" style={styles.impactFlameBack} />
+                    <Ionicons name="flame" size={22} color={COLORS.accent} style={styles.impactFlameFront} />
+                  </View>
                   <Text style={styles.performerSectionHeader}>今日影响力</Text>
                 </View>
               </View>
@@ -773,6 +777,25 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
     fontSize: 14,
     fontWeight: '600',
+  },
+  performerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  impactFlameWrap: {
+    width: 26,
+    height: 26,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  impactFlameBack: {
+    position: 'absolute',
+    opacity: 0.45,
+    transform: [{ translateX: 1 }, { translateY: -1 }],
+  },
+  impactFlameFront: {
+    opacity: 1,
   },
   performerSectionHeader: {
     color: COLORS.textMain,

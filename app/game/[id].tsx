@@ -36,8 +36,15 @@ import { goBackOrReplace } from '../../src/utils/navigation';
 
 const { width } = Dimensions.get('window');
 
-const HEADER_EXPANDED_HEIGHT = 156;
-const HEADER_COLLAPSED_HEIGHT = 76;
+const HEADER_TABS_HEIGHT = 38;
+/** Top row (date/status/back) + scoreboard only; tabs sit below in normal flow. */
+const EXPANDED_TOP_ROW = 36;
+const SCOREBOARD_ROW = 60;
+const HEADER_EXPANDED_HEIGHT =
+  EXPANDED_TOP_ROW + SCOREBOARD_ROW + HEADER_TABS_HEIGHT;
+/** Compact score row + tabs always visible while scrolled. */
+const COMPACT_ROW_HEIGHT = 40;
+const HEADER_COLLAPSED_HEIGHT = COMPACT_ROW_HEIGHT + HEADER_TABS_HEIGHT;
 
 const AnimatedStatBar = ({ awayPct, homePct, visible }: { awayPct: number, homePct: number, visible: boolean }) => {
   const widthAnim = useRef(new Animated.Value(0)).current;
@@ -158,6 +165,16 @@ interface Injury {
 
 interface GameDetail {
   gameId: string;
+  date?: string;
+  gameDate?: string;
+  dateFormatted?: {
+    date?: string;
+    dateTime?: string;
+  };
+  gameEtFormatted?: {
+    date?: string;
+    dateTime?: string;
+  };
   gameStatusText: string;
   gameStatus: number;
   period: number;
@@ -288,40 +305,46 @@ export default function GameDetailScreen() {
     });
   };
 
-  // Header Animations
-  const headerHeight = scrollY.interpolate({
-    inputRange: [0, 120],
+  // Header: shrink main score area; tabs stay pinned (no fade) so scroll padding can match real height.
+  const headerOuterHeight = scrollY.interpolate({
+    inputRange: [0, 56],
     outputRange: [HEADER_EXPANDED_HEIGHT + insets.top, HEADER_COLLAPSED_HEIGHT + insets.top],
     extrapolate: 'clamp',
   });
-
+  const headerMainHeight = scrollY.interpolate({
+    inputRange: [0, 56],
+    outputRange: [
+      HEADER_EXPANDED_HEIGHT - HEADER_TABS_HEIGHT,
+      HEADER_COLLAPSED_HEIGHT - HEADER_TABS_HEIGHT,
+    ],
+    extrapolate: 'clamp',
+  });
+  const scrollContentPaddingTop = scrollY.interpolate({
+    inputRange: [0, 56],
+    outputRange: [
+      HEADER_EXPANDED_HEIGHT + insets.top + 8,
+      HEADER_COLLAPSED_HEIGHT + insets.top + 8,
+    ],
+    extrapolate: 'clamp',
+  });
   const expandedOpacity = scrollY.interpolate({
-    inputRange: [0, 80],
+    inputRange: [0, 32],
     outputRange: [1, 0],
     extrapolate: 'clamp',
   });
-
   const expandedTranslateY = scrollY.interpolate({
-    inputRange: [0, 120],
-    outputRange: [0, -20],
+    inputRange: [0, 56],
+    outputRange: [0, -8],
     extrapolate: 'clamp',
   });
-
-  const expandedScale = scrollY.interpolate({
-    inputRange: [0, 120],
-    outputRange: [1, 0.9],
-    extrapolate: 'clamp',
-  });
-
-  const collapsedOpacity = scrollY.interpolate({
-    inputRange: [80, 120],
+  const compactOpacity = scrollY.interpolate({
+    inputRange: [20, 48],
     outputRange: [0, 1],
     extrapolate: 'clamp',
   });
-
-  const collapsedTranslateY = scrollY.interpolate({
-    inputRange: [80, 120],
-    outputRange: [10, 0],
+  const compactTranslateY = scrollY.interpolate({
+    inputRange: [20, 52],
+    outputRange: [4, 0],
     extrapolate: 'clamp',
   });
 
@@ -369,6 +392,33 @@ export default function GameDetailScreen() {
   const { homeTeam, awayTeam } = game;
   const isScheduled = Number(game.gameStatus) === 1 || Number(game.gameStatus) === 6;
   const isFinished = Number(game.gameStatus) === 3;
+  const gameStatusLabel =
+    game.gameStatus === 3 ? '已结束' :
+    game.gameStatus === 2 ? '' :
+    game.gameStatus === 6 ? '延期' :
+    game.gameStatus === 1 ? '未开赛' :
+    game.gameStatusText.toUpperCase();
+  const liveClockLabel = game.gameStatus === 2
+    ? `${game.period > 4 ? `OT${game.period - 4}` : `第${game.period}节`} ${game.gameClock}`
+    : '';
+  const expandedStatusLabel = game.gameStatus === 2 && liveClockLabel ? liveClockLabel : gameStatusLabel;
+  const gameDateLabel: string | undefined = (() => {
+    const gameWithDate = game as GameDetail;
+    const rawDate =
+      gameWithDate.dateFormatted?.date ||
+      gameWithDate.dateFormatted?.dateTime ||
+      gameWithDate.gameEtFormatted?.date ||
+      gameWithDate.gameEtFormatted?.dateTime ||
+      gameWithDate.gameDate ||
+      gameWithDate.date;
+
+    if (!rawDate) return undefined;
+    if (!Number.isNaN(Date.parse(rawDate))) {
+      const parsed = new Date(rawDate);
+      return `${parsed.getMonth() + 1}月${parsed.getDate()}日`;
+    }
+    return rawDate;
+  })();
 
   const navigateToPlayer = (playerId: string, playerName?: string) => {
     posthog.capture('game_player_tapped', {
@@ -1190,77 +1240,79 @@ export default function GameDetailScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Animated Sticky Header */}
-      <Animated.View style={[styles.header, { height: headerHeight, paddingTop: insets.top, opacity: headerOpacity }]}>
-        <DetailScreenHeader
-          onBack={handleBack}
-          center={
-            <Animated.View style={[styles.compactScore, { opacity: collapsedOpacity, transform: [{ translateY: collapsedTranslateY }] }]}>
-              <Text style={styles.compactScoreText}>
-                {awayTeam.abbreviation} {awayTeam.score} - {homeTeam.score} {homeTeam.abbreviation}
-              </Text>
-              <View style={styles.liveInfoRow}>
-                <Text style={styles.compactStatus}>
-                  {game.gameStatus === 3 ? '已结束' : 
-                   game.gameStatus === 2 ? '' : 
-                   game.gameStatus === 6 ? '延期' : 
-                   game.gameStatus === 1 ? '未开赛' : 
-                   game.gameStatusText.toUpperCase()}
+      {/* Sticky header: score area shrinks; tabs stay visible; scroll padding tracks header height */}
+      <Animated.View style={[styles.header, { height: headerOuterHeight, paddingTop: insets.top, opacity: headerOpacity }]}>
+        <Animated.View style={[styles.headerMain, { height: headerMainHeight }]}>
+          <Animated.View
+            style={[
+              styles.collapsedHeaderRow,
+              { opacity: compactOpacity, transform: [{ translateY: compactTranslateY }] },
+            ]}
+          >
+            <TouchableOpacity onPress={handleBack} style={styles.headerIconButton}>
+              <Ionicons name="chevron-back" size={24} color={COLORS.textMain} />
+            </TouchableOpacity>
+            <View style={styles.compactScore}>
+              <View style={styles.compactScoreLine}>
+                <Image source={getTeamImage(awayTeam.abbreviation)} style={styles.compactTitleLogo} />
+                <Text style={styles.compactScoreText} numberOfLines={1}>
+                  {awayTeam.abbreviation} {awayTeam.score} - {homeTeam.score} {homeTeam.abbreviation}
                 </Text>
-                {game.gameStatus === 2 && (
-                  <Text style={styles.compactLiveInfo}>
-                    {game.period > 4 ? `OT${game.period - 4}` : `第${game.period}节`} {game.gameClock}
-                  </Text>
-                )}
+                <Image source={getTeamImage(homeTeam.abbreviation)} style={styles.compactTitleLogo} />
               </View>
-            </Animated.View>
-          }
-          paddingTop={0}
-        >
-        {/* Expanded Content */}
-        <Animated.View style={[styles.scoreboard, { 
-          opacity: expandedOpacity, 
-          transform: [
-            { scale: expandedScale },
-            { translateY: expandedTranslateY }
-          ] 
-        }]}>
-          <TouchableOpacity 
-            style={styles.teamContainer}
-            onPress={() => router.push(`/team/${awayTeam.abbreviation}`)}
-          >
-            <Image source={getTeamImage(awayTeam.abbreviation)} style={styles.logo} />
-            <Text style={styles.teamName}>{awayTeam.nameZhCN || awayTeam.name}</Text>
-          </TouchableOpacity>
-          
-          <View style={styles.scoreContainer}>
-            <Text style={styles.mainScore}>{awayTeam.score} - {homeTeam.score}</Text>
-            <View style={styles.liveInfoRow}>
-              <Text style={styles.gameStatusText}>
-                {game.gameStatus === 3 ? '已结束' : 
-                 game.gameStatus === 2 ? '' : 
-                 game.gameStatus === 6 ? '延期' : 
-                 game.gameStatus === 1 ? '未开赛' : 
-                 game.gameStatusText.toUpperCase()}
-              </Text>
-              {game.gameStatus === 2 && (
-                <Text style={styles.liveClockText}>
-                  {game.period > 4 ? `OT${game.period - 4}` : `第${game.period}节`} {game.gameClock}
+              <View style={styles.compactStatusRow}>
+                <Text style={styles.compactStatus} numberOfLines={1}>
+                  {game.gameStatus === 2 ? liveClockLabel : gameStatusLabel}
                 </Text>
-              )}
+              </View>
             </View>
-          </View>
+            <View style={styles.headerIconButton} />
+          </Animated.View>
 
-          <TouchableOpacity 
-            style={styles.teamContainer}
-            onPress={() => router.push(`/team/${homeTeam.abbreviation}`)}
+          <Animated.View
+            style={[
+              styles.expandedHeaderContent,
+              { opacity: expandedOpacity, transform: [{ translateY: expandedTranslateY }] },
+            ]}
           >
-            <Image source={getTeamImage(homeTeam.abbreviation)} style={styles.logo} />
-            <Text style={styles.teamName}>{homeTeam.nameZhCN || homeTeam.name}</Text>
-          </TouchableOpacity>
+            <View style={styles.expandedTopRow}>
+              <TouchableOpacity onPress={handleBack} style={styles.expandedTopButton}>
+                <Ionicons name="chevron-back" size={28} color={COLORS.textMain} />
+              </TouchableOpacity>
+              <View style={styles.expandedMeta}>
+                {gameDateLabel ? (
+                  <Text style={styles.expandedDateText} numberOfLines={1}>{gameDateLabel}</Text>
+                ) : null}
+                <Text style={styles.expandedStatusText} numberOfLines={1}>{expandedStatusLabel}</Text>
+              </View>
+              <View style={styles.expandedTopButton} />
+            </View>
+            <View style={styles.scoreboard}>
+              <TouchableOpacity
+                style={styles.teamContainer}
+                onPress={() => router.push(`/team/${awayTeam.abbreviation}`)}
+              >
+                <Image source={getTeamImage(awayTeam.abbreviation)} style={styles.logo} />
+                <Text style={styles.teamName}>{awayTeam.nameZhCN || awayTeam.name}</Text>
+              </TouchableOpacity>
+
+              <View style={styles.scoreContainer}>
+                <Text style={styles.mainScore} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.78}>
+                  {awayTeam.score} - {homeTeam.score}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.teamContainer}
+                onPress={() => router.push(`/team/${homeTeam.abbreviation}`)}
+              >
+                <Image source={getTeamImage(homeTeam.abbreviation)} style={styles.logo} />
+                <Text style={styles.teamName}>{homeTeam.nameZhCN || homeTeam.name}</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
         </Animated.View>
 
-        {/* Tabs */}
         <View style={styles.tabsContainer}>
           <View style={styles.tabs}>
             <TouchableOpacity onPress={() => handleTabChange('game')} style={styles.tab}>
@@ -1280,7 +1332,6 @@ export default function GameDetailScreen() {
             }) 
           }]} />
         </View>
-        </DetailScreenHeader>
       </Animated.View>
 
       <Animated.ScrollView
@@ -1289,7 +1340,7 @@ export default function GameDetailScreen() {
           { useNativeDriver: false }
         )}
         scrollEventThrottle={16}
-        contentContainerStyle={{ paddingTop: HEADER_EXPANDED_HEIGHT + insets.top + 20 }}
+        contentContainerStyle={{ paddingTop: scrollContentPaddingTop }}
         showsVerticalScrollIndicator={false}
       >
         <Animated.View style={{
@@ -1326,6 +1377,11 @@ const styles = StyleSheet.create({
     zIndex: 100,
     backgroundColor: COLORS.header,
     overflow: 'hidden',
+    flexDirection: 'column',
+  },
+  headerMain: {
+    width: '100%',
+    overflow: 'hidden',
   },
   navBar: {
     flexDirection: 'row',
@@ -1341,52 +1397,125 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  collapsedHeaderRow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 3,
+    height: COMPACT_ROW_HEIGHT,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  headerIconButton: {
+    width: 44,
+    height: COMPACT_ROW_HEIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   compactScore: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  compactScoreLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  compactTitleLogo: {
+    width: 16,
+    height: 16,
+    resizeMode: 'contain',
+  },
   compactScoreText: {
     color: COLORS.textMain,
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  compactStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 1,
   },
   compactStatus: {
     color: COLORS.textSecondary,
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
-    marginTop: 2,
+  },
+  expandedHeaderContent: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1,
+  },
+  expandedTopRow: {
+    height: EXPANDED_TOP_ROW,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+  },
+  expandedTopButton: {
+    width: 44,
+    height: EXPANDED_TOP_ROW,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  expandedMeta: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  expandedDateText: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  expandedStatusText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontWeight: '800',
+    textAlign: 'center',
   },
   scoreboard: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingBottom: 44,
-    height: 108,
+    paddingHorizontal: 24,
+    height: SCOREBOARD_ROW,
   },
   teamContainer: {
     alignItems: 'center',
-    width: 100,
+    width: 74,
   },
   logo: {
-    width: 38,
+    width: 50,
     height: 38,
-    marginBottom: 6,
+    marginBottom: 1,
+    resizeMode: 'contain',
   },
   teamName: {
     color: COLORS.textMain,
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '700',
   },
   scoreContainer: {
+    flex: 1,
     alignItems: 'center',
+    minWidth: 0,
+    paddingHorizontal: 10,
   },
   mainScore: {
     color: COLORS.textMain,
     fontSize: 32,
-    fontWeight: '700',
-    letterSpacing: -1,
+    fontWeight: '800',
   },
   gameStatusText: {
     color: COLORS.textSecondary,
@@ -1413,11 +1542,8 @@ const styles = StyleSheet.create({
   },
   // Tabs
   tabsContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 44,
+    height: HEADER_TABS_HEIGHT,
+    width: '100%',
     backgroundColor: COLORS.header,
   },
   tabs: {
@@ -1431,7 +1557,7 @@ const styles = StyleSheet.create({
   },
   tabText: {
     color: COLORS.textSecondary,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
   },
   tabTextActive: {

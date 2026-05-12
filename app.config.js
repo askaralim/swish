@@ -2,7 +2,7 @@ export default {
   expo: {
     name: '唰数据',
     slug: 'swish',
-    version: '1.1.1',
+    version: '1.1.2',
     orientation: 'portrait',
     icon: './assets/images/icon-swish-not-rounded.png',
     scheme: 'swish',
